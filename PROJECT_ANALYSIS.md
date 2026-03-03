@@ -444,3 +444,265 @@ Before proceeding to the detailed implementation plan, please confirm:
 3. **MVP Scope:** Is the 5-module MVP scope correctly captured?
 4. **Architecture:** Does the high-level architecture align with your vision?
 5. **Any adjustments** to priorities, features, or approach?
+
+---
+
+## 5. Decision Responses & Tech Stack Evaluation
+
+### 5.1 Confirmed Decisions
+
+| # | Question | Decision | Notes |
+|---|----------|----------|-------|
+| 1 | Build vs. Adopt | **BUILD CUSTOM** | Confirmed. Will be developed as an open-source project for future community publication. The gap analysis (Section 2.4) validates that no existing tool covers the unique combination of Oracle + Custom SQL + Scheduling + JSON caching + Wizard UI. |
+| 3 | MVP Scope (5 modules) | **CONFIRMED** | The five modules (Connection Management, API Creation Wizard, Auth Configuration, Task Scheduling, Settings) correctly capture the MVP scope. |
+| 4 | Architecture | **CONFIRMED** | The high-level architecture (Section 3.5) and request lifecycle (Section 3.6) align with the project vision. No changes needed. |
+| 5 | Adjustments | **NONE** | No adjustments to priorities or approach at this time. |
+
+**Question 2 (Tech Stack)** requires a detailed evaluation — see Section 5.2 below.
+
+### 5.2 Tech Stack Evaluation
+
+The proposed stack from Section 3.4 is evaluated below on a component-by-component basis, considering fitness for the project's specific requirements, ecosystem maturity, developer experience, operational characteristics, and long-term maintainability.
+
+---
+
+#### 5.2.1 Backend: Python 3.11+ / FastAPI
+
+**Verdict: ✅ STRONGLY RECOMMENDED — Excellent fit.**
+
+| Criterion | Assessment |
+|-----------|-----------|
+| **Performance** | FastAPI is one of the fastest Python frameworks, built on Starlette (ASGI) with native `async/await`. For a tool serving cached JSON or proxying DB queries, throughput is more than adequate. |
+| **Async Support** | Critical for this project. Multiple concurrent Oracle connections, scheduled tasks, and API serving all benefit from async I/O. FastAPI's native async support avoids thread-pool bottlenecks. |
+| **Auto-Generated OpenAPI Docs** | Built-in Swagger UI and ReDoc provide instant interactive API documentation — valuable both for the admin API and for users consuming generated endpoints. |
+| **Pydantic Integration** | Pydantic v2 (used by FastAPI 0.100+) provides robust request/response validation, serialization, and settings management. This directly supports the "Input Validation" security requirement (Section 3.7). |
+| **Ecosystem Compatibility** | `python-oracledb`, `SQLAlchemy 2.0`, `APScheduler`, `python-jose`, `passlib` — all integrate cleanly with FastAPI. No compatibility concerns. |
+| **Community & Maintenance** | FastAPI has 75k+ GitHub stars, active maintenance by Sebastián Ramírez, and a large ecosystem of middleware/plugins. Low risk of abandonment. |
+| **Learning Curve** | Moderate. Type hints + dependency injection pattern requires familiarity but leads to highly maintainable code. |
+
+**Risks & Mitigations:**
+- *Risk:* FastAPI's dependency injection system can become complex in large applications. *Mitigation:* Establish clear patterns early (service layer, repository pattern) and document conventions.
+- *Risk:* Python GIL limits true CPU parallelism. *Mitigation:* Not a concern — this project is I/O-bound (DB queries, HTTP serving), not CPU-bound.
+
+**Recommendation:** Python 3.12+ (instead of 3.11+) should be targeted. Python 3.12 brings significant performance improvements (10-15% faster), better error messages, and will have longer support. Python 3.11 EOL is October 2027; Python 3.12 EOL is October 2028.
+
+---
+
+#### 5.2.2 Oracle Connectivity: python-oracledb
+
+**Verdict: ✅ STRONGLY RECOMMENDED — The only correct choice.**
+
+| Criterion | Assessment |
+|-----------|-----------|
+| **Official Support** | Maintained by Oracle. It is the official successor to cx_Oracle. |
+| **Thin Mode** | Can connect to Oracle without requiring the Oracle Client libraries — a massive simplification for deployment, especially in Docker. |
+| **Thick Mode** | Optional Oracle Client integration for advanced features (Advanced Queuing, LDAP lookups, etc.) if needed post-MVP. |
+| **Async Support** | Supports asyncio via `oracledb.connect_async()` — aligns perfectly with FastAPI's async architecture. |
+| **Connection Pooling** | Built-in connection pool management, configurable min/max/increment — matches Module 1 (Connection Management) requirements. |
+
+**No alternatives exist** with equivalent Oracle support in the Python ecosystem. This is the definitive choice.
+
+---
+
+#### 5.2.3 ORM / Query Layer: SQLAlchemy 2.0
+
+**Verdict: ✅ RECOMMENDED — Right choice with caveats.**
+
+| Criterion | Assessment |
+|-----------|-----------|
+| **Database Abstraction** | The primary justification — enables future multi-database support (PostgreSQL, MySQL, SQL Server) via dialect swapping. |
+| **Async Support** | SQLAlchemy 2.0 has first-class async support via `AsyncSession` and `AsyncEngine`. |
+| **Oracle Dialect** | Full Oracle dialect support via python-oracledb backend. |
+| **Dual Usage** | Can be used for ORM (app database models) AND for raw SQL execution (user queries against Oracle), covering both use cases. |
+| **Migration Support** | Alembic (SQLAlchemy's migration tool) provides robust schema versioning for the PostgreSQL app database. |
+
+**Important Caveat:** For user-defined SQL queries (Module 2), SQLAlchemy should be used as a **connection/execution layer only** — not as an ORM. User queries must be passed through as parameterized raw SQL via `text()` with bind parameters. This distinction should be clearly architected:
+- **App database (PostgreSQL):** Use SQLAlchemy ORM models (connections, endpoints, schedules, logs)
+- **User databases (Oracle):** Use SQLAlchemy Core `text()` with bound parameters for raw query execution
+
+---
+
+#### 5.2.4 App Database: PostgreSQL
+
+**Verdict: ✅ STRONGLY RECOMMENDED — Ideal choice.**
+
+| Criterion | Assessment |
+|-----------|-----------|
+| **JSON/JSONB Columns** | Native JSONB support is perfect for storing cached query results (Module 4). Supports indexing, querying, and partial updates on JSON data. |
+| **APScheduler Job Store** | Built-in PostgreSQL job store support — jobs survive process restarts. |
+| **Reliability** | Battle-tested, ACID-compliant, excellent for storing application state. |
+| **Scalability** | More than sufficient for the expected workload (metadata storage + cached JSON). |
+| **Ecosystem** | `asyncpg` driver provides high-performance async access; integrates seamlessly with SQLAlchemy 2.0 async. |
+
+**Consideration:** For local development and testing, consider also supporting SQLite as an alternative app database (via SQLAlchemy dialect swapping) so developers can run the project without a PostgreSQL instance. This is a "nice-to-have" for developer experience, not a requirement.
+
+---
+
+#### 5.2.5 Task Scheduling: APScheduler
+
+**Verdict: ✅ RECOMMENDED — Good fit for MVP.**
+
+| Criterion | Assessment |
+|-----------|-----------|
+| **Cron Triggers** | Full cron expression support matches the scheduling requirements in Module 4. |
+| **Persistent Job Store** | PostgreSQL-backed job store ensures scheduled jobs survive application restarts. |
+| **Python-Native** | Runs in-process, no external dependencies (no Redis, no RabbitMQ, no Celery). |
+| **Dynamic Jobs** | Jobs can be added, modified, paused, and removed at runtime — essential for the wizard-based scheduling flow. |
+
+**Note on APScheduler Version:** APScheduler 4.x (currently in alpha/beta) is a significant rewrite with native async support and a redesigned architecture. **Recommendation:** Use APScheduler 3.x (stable) for MVP. The 3.x series is well-tested and documented. Evaluate migration to 4.x post-MVP once it reaches stable release.
+
+**Long-Term Consideration:** If the project scales to require distributed task execution (multiple worker nodes), Celery + Redis/RabbitMQ would be the natural evolution. APScheduler is sufficient for the single-instance deployment targeted by MVP.
+
+---
+
+#### 5.2.6 Frontend: Next.js 14+ (App Router)
+
+**Verdict: ✅ RECOMMENDED — Good choice, with architectural guidance.**
+
+| Criterion | Assessment |
+|-----------|-----------|
+| **React Ecosystem** | Access to the full React component ecosystem; strong community support. |
+| **App Router (RSC)** | React Server Components reduce client-side JavaScript bundle size. Useful for the admin dashboard pages. |
+| **API Routes** | Next.js API routes can serve as a BFF (Backend-for-Frontend) layer, proxying requests to FastAPI and handling session management. |
+| **TypeScript** | First-class TypeScript support ensures type safety across the frontend. |
+| **SSR/SSG** | Server-side rendering provides fast initial page loads for the admin panel. |
+
+**Architectural Guidance:**
+- The Next.js app should function as a **pure admin UI / management console**. It should NOT serve the dynamic data API endpoints — those are handled exclusively by FastAPI.
+- Use Next.js API routes **only** for frontend concerns (session management, BFF proxying to FastAPI admin API) — not for business logic.
+- The wizard flow (Module 2) is the most complex frontend feature. React's component model with state management (React Context or Zustand) is well-suited for multi-step wizard forms.
+
+**Alternative Considered — Vite + React SPA:**
+A simpler Vite-based React SPA was considered. Since this is a self-hosted admin tool (not a public-facing website), SSR/SSG benefits are minimal. However, Next.js still wins for:
+1. File-based routing (faster development for the multi-page admin interface)
+2. Built-in API routes for BFF pattern
+3. Better developer tooling and conventions
+4. The team's stated preference
+
+The overhead of Next.js is justified by development velocity rather than runtime benefits.
+
+---
+
+#### 5.2.7 UI Components: shadcn/ui + Tailwind CSS
+
+**Verdict: ✅ STRONGLY RECOMMENDED — Excellent choice.**
+
+| Criterion | Assessment |
+|-----------|-----------|
+| **Not a Dependency** | shadcn/ui copies components into the project — no version lock-in, full control over the code. |
+| **Accessibility** | Built on Radix UI primitives, providing WCAG-compliant components out of the box. |
+| **Wizard Components** | Stepper, Form, Dialog, Select, Command, and Table components directly support the wizard flow and admin CRUD interfaces. |
+| **Tailwind CSS** | Utility-first CSS ensures consistent styling without CSS architecture decisions. Pairs perfectly with shadcn/ui. |
+| **Customizability** | Full source code ownership means any component can be modified to match exact project requirements. |
+| **Dark Mode** | Built-in theming support (light/dark mode) with minimal configuration. |
+
+**Note:** Consider adding a rich code/SQL editor component (e.g., Monaco Editor via `@monaco-editor/react` or CodeMirror via `@uiw/react-codemirror`) for Module 2's SQL query writing step. This is beyond what shadcn/ui provides but is essential for a good query-authoring experience.
+
+---
+
+#### 5.2.8 Auth Libraries: python-jose + passlib
+
+**Verdict: ⚠️ RECOMMENDED WITH SUBSTITUTION.**
+
+| Library | Assessment |
+|---------|-----------|
+| **python-jose** | ⚠️ **Concern:** python-jose has not been actively maintained (last release in 2021). The project shows limited activity. |
+| **passlib** | ⚠️ **Concern:** passlib has also seen reduced maintenance activity. |
+
+**Recommendation:**
+- Replace `python-jose` with **PyJWT** (`PyJWT` package). PyJWT is actively maintained (by the jpadilla team), has 5k+ stars, frequent releases, and is the most widely adopted JWT library in the Python ecosystem. It covers all JWT needs for this project (token creation, validation, expiration handling).
+- Replace `passlib` with **bcrypt** (`bcrypt` package) directly for password hashing, or keep passlib if broader hashing algorithm support is needed. For the MVP (Bearer Token, Basic Auth, API Key), bcrypt via the `bcrypt` package is sufficient and more actively maintained.
+
+| Original | Replacement | Reason |
+|----------|-------------|--------|
+| python-jose | **PyJWT** | Actively maintained, widely adopted, simpler API |
+| passlib | **bcrypt** (direct) | More focused, actively maintained; passlib acceptable if multiple hash algorithms needed |
+
+---
+
+#### 5.2.9 Logging: Python logging + structlog
+
+**Verdict: ✅ RECOMMENDED.**
+
+structlog provides structured JSON logging which is essential for:
+- Task execution logging (Module 4: start time, duration, success/failure, row count)
+- API access logging (Section 3.7: timestamp, IP, user, endpoint, status)
+- Integration with log aggregation tools (ELK, CloudWatch, etc.) in production deployments
+
+No changes recommended.
+
+---
+
+#### 5.2.10 Containerization: Docker + docker-compose
+
+**Verdict: ✅ STRONGLY RECOMMENDED.**
+
+Essential for a self-hosted tool. Docker Compose should define:
+- `api` service (FastAPI backend)
+- `web` service (Next.js frontend)
+- `db` service (PostgreSQL)
+- Optional `oracle` service (for local development/testing with Oracle XE)
+
+No changes recommended.
+
+---
+
+### 5.3 Tech Stack Summary: Final Recommendation
+
+| Layer | Proposed | Recommendation | Change? |
+|-------|----------|----------------|---------|
+| **Backend** | Python 3.11+ / FastAPI | Python **3.12+** / FastAPI | Minor version bump |
+| **Oracle Driver** | python-oracledb | python-oracledb | No change |
+| **ORM** | SQLAlchemy 2.0 | SQLAlchemy 2.0 + **Alembic** (migrations) | Addition |
+| **App Database** | PostgreSQL | PostgreSQL (+ **asyncpg** driver) | Driver specified |
+| **Scheduler** | APScheduler | APScheduler **3.x** (stable) | Version pinned |
+| **Frontend** | Next.js 14+ | Next.js 14+ (App Router) | No change |
+| **UI Components** | shadcn/ui + Tailwind CSS | shadcn/ui + Tailwind CSS + **Monaco/CodeMirror** (SQL editor) | Addition |
+| **Testing** | pytest + pytest-asyncio | pytest + pytest-asyncio | No change |
+| **Auth** | python-jose + passlib | **PyJWT** + **bcrypt** | ⚠️ Substitution |
+| **Logging** | structlog | structlog | No change |
+| **Containers** | Docker + docker-compose | Docker + docker-compose | No change |
+
+### 5.4 Additional Recommendations
+
+1. **Monorepo Structure:** Organize the project as a monorepo with clear separation:
+   ```
+   DB2API-Exposure/
+   ├── backend/          # FastAPI application
+   ├── frontend/         # Next.js application
+   ├── docker/           # Docker configurations
+   ├── docs/             # Project documentation
+   └── docker-compose.yml
+   ```
+
+2. **API Versioning from Day One:** Prefix admin API routes with `/api/v1/admin/*` to allow non-breaking evolution.
+
+3. **Environment Configuration:** Use Pydantic Settings (built into Pydantic v2) for configuration management with `.env` file support. This avoids custom config parsing and integrates naturally with FastAPI.
+
+4. **Database Migrations:** Alembic should be included from the start. Schema changes to the PostgreSQL app database must be versioned and reproducible across environments.
+
+5. **SQL Editor Component:** For the API Creation Wizard (Module 2), integrate a code editor component (Monaco Editor or CodeMirror 6) with SQL syntax highlighting, auto-completion, and error indicators. This is a critical UX feature for the query-authoring step.
+
+6. **CI/CD Pipeline:** Set up GitHub Actions early with:
+   - Backend: `ruff` (linting) + `pytest` (testing) + `mypy` (type checking)
+   - Frontend: `eslint` + `prettier` + `vitest` (or Jest)
+   - Docker build verification
+
+---
+
+## 6. Next Steps
+
+With all decisions confirmed and the tech stack evaluated, the following implementation phases are proposed:
+
+| Step | Description | Deliverable |
+|------|-------------|-------------|
+| **Step 1** | Repository scaffolding | Monorepo structure, Docker Compose, CI/CD pipeline, dev environment setup |
+| **Step 2** | Backend foundation | FastAPI project setup, PostgreSQL models (Alembic migrations), health check endpoint |
+| **Step 3** | Module 1 — Connection Management | CRUD API + UI for Oracle database connections, connection testing |
+| **Step 4** | Module 3 — Auth Configuration | Auth method CRUD, token generation, middleware setup |
+| **Step 5** | Module 2 — API Creation Wizard | Wizard flow (backend + frontend), SQL execution engine, dynamic endpoint router |
+| **Step 6** | Module 4 — Task Scheduling | APScheduler integration, scheduled snapshot execution, task management UI |
+| **Step 7** | Module 5 — Settings | App configuration, system health dashboard |
+| **Step 8** | Integration testing & documentation | End-to-end testing, deployment documentation, user guide |
+
+**Ready to proceed to Step 1 upon confirmation.**
