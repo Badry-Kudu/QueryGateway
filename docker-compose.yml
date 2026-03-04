@@ -26,7 +26,7 @@ services:
       APP_ENV: development
       DEBUG: "false"
       LOG_LEVEL: INFO
-      CORS_ORIGINS: "http://localhost:5173,http://localhost:80"
+      CORS_ORIGINS: "http://localhost:5173,http://localhost"
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-changeme-set-in-env-file}
       JWT_ALGORITHM: HS256
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "60"
