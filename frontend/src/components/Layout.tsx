@@ -1,4 +1,4 @@
-import { Database, LayoutDashboard, Settings, Shield } from "lucide-react";
+import { Database, LayoutDashboard, Shield } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { cn } from "@/lib/utils";
@@ -7,7 +7,6 @@ const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/connections", label: "Connections", icon: Database },
   { to: "/auth", label: "Auth Methods", icon: Shield },
-  { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Layout() {

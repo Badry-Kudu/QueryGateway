@@ -10,7 +10,9 @@ Responsibilities:
 import time
 import uuid
 from collections.abc import Sequence
+from functools import partial
 
+import anyio
 import structlog
 
 from app.crypto import decrypt_password, encrypt_password
@@ -106,8 +108,9 @@ class ConnectionService:
         if obj is None:
             return None
 
-        changes: dict[str, object] = {}
-        for field in (
+        # Use model_fields_set so explicitly-null values (e.g. description=null)
+        # are applied, while fields absent from the payload are left unchanged.
+        _updatable = {
             "name",
             "description",
             "host",
@@ -121,10 +124,11 @@ class ConnectionService:
             "query_timeout",
             "mode",
             "is_active",
-        ):
-            value = getattr(payload, field)
-            if value is not None:
-                changes[field] = value
+        }
+        changes: dict[str, object] = {
+            field: getattr(payload, field)
+            for field in payload.model_fields_set & _updatable
+        }
 
         if payload.name is not None and payload.name != obj.name:
             conflict = await self._repo.get_by_name(payload.name)
@@ -189,24 +193,24 @@ class ConnectionService:
         else:
             dsn = f"{obj.host}:{obj.port}/{obj.sid}"
 
-        start = time.monotonic()
-        try:
+        def _probe(username: str, pwd: str, dsn: str) -> str | None:
+            """Blocking Oracle probe — runs in a thread so the event loop is free."""
             import oracledb  # noqa: PLC0415
 
-            conn = oracledb.connect(
-                user=obj.username,
-                password=password,
-                dsn=dsn,
-                mode=oracledb.DEFAULT_AUTH,
-            )
+            conn = oracledb.connect(user=username, password=pwd, dsn=dsn)
             try:
                 cursor = conn.cursor()
                 cursor.execute("SELECT banner FROM v$version WHERE rownum = 1")
                 row = cursor.fetchone()
-                oracle_version = row[0] if row else None
+                return str(row[0]) if row else None
             finally:
                 conn.close()
 
+        start = time.monotonic()
+        try:
+            oracle_version = await anyio.to_thread.run_sync(
+                partial(_probe, obj.username, password, dsn)
+            )
             duration_ms = (time.monotonic() - start) * 1000
             log.info(
                 "connection_test_success",

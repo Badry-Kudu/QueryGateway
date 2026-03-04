@@ -63,6 +63,7 @@ class ConnectionUpdate(BaseModel):
 
     All fields are optional; omitted fields are left unchanged.
     Supplying `password=null` is ignored — use an explicit string to rotate.
+    If either service_name or sid is provided, exactly one must be non-null.
     """
 
     name: str | None = Field(None, min_length=1, max_length=255)
@@ -85,6 +86,23 @@ class ConnectionUpdate(BaseModel):
 
     mode: OracleMode | None = None
     is_active: bool | None = None
+
+    @model_validator(mode="after")
+    def identifier_invariant(self) -> "ConnectionUpdate":
+        """Reject payloads that set both identifiers or clear both explicitly."""
+        provided = self.model_fields_set & {"service_name", "sid"}
+        if len(provided) < 2:
+            # Only one (or neither) identifier touched — nothing to validate here.
+            return self
+        # Both were provided in the payload.
+        if self.service_name and self.sid:
+            raise ValueError("Provide either service_name or sid, not both.")
+        if not self.service_name and not self.sid:
+            raise ValueError(
+                "Cannot clear both service_name and sid simultaneously; "
+                "exactly one must remain set."
+            )
+        return self
 
 
 class ConnectionResponse(BaseModel):

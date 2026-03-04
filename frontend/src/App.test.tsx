@@ -1,5 +1,17 @@
 import { render, screen } from "@testing-library/react";
+import { vi } from "vitest";
 import App from "./App";
+
+// Stub the API modules so no real HTTP requests are made during tests.
+vi.mock("@/lib/api", () => ({
+  connectionsApi: {
+    list: vi.fn().mockResolvedValue([]),
+  },
+  authMethodsApi: {
+    list: vi.fn().mockResolvedValue([]),
+  },
+  getApiError: vi.fn((err: unknown) => String(err)),
+}));
 
 describe("App", () => {
   it("renders the dashboard page h1 heading", () => {

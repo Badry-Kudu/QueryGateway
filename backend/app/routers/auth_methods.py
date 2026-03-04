@@ -14,7 +14,6 @@ Routes:
 
 import uuid
 
-import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,8 +28,6 @@ from app.schemas.auth_method import (
     TokenIssuedResponse,
 )
 from app.services.auth_method import AuthMethodService
-
-log = structlog.get_logger()
 
 router = APIRouter(prefix="/api/v1/admin/auth", tags=["auth-methods"])
 

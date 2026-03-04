@@ -23,6 +23,7 @@ log = structlog.get_logger()
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: object) -> Response:
         request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+        request.state.request_id = request_id
 
         # Establish per-request log context visible to all downstream loggers.
         structlog.contextvars.clear_contextvars()
