@@ -17,6 +17,17 @@ The ASGI app is exercised through httpx.AsyncClient with ASGITransport,
 which exercises the full middleware stack without a live TCP connection.
 """
 
+import os
+
+# Set required env vars before any app module is imported so that
+# pydantic-settings can construct Settings() without a .env file.
+# These values are safe for testing only — never use them in production.
+os.environ.setdefault(
+    "ENCRYPTION_KEY",
+    # Valid Fernet key (base64-encoded 32 bytes of zeroes) for test isolation.
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+)
+
 from collections.abc import AsyncGenerator
 
 import pytest
