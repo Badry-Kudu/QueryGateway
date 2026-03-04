@@ -1,9 +1,48 @@
-"""DB2API-Exposure FastAPI application entry point."""
+"""DB2API-Exposure FastAPI application factory.
 
+Responsibilities of this module:
+- Create the FastAPI instance with metadata and lifespan.
+- Register middleware (ordering matters: outermost first).
+- Register global exception handlers.
+- Mount all versioned routers.
+
+Keep business logic out of this file.
+"""
+
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
+import structlog
 from fastapi import FastAPI
+from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.exceptions import (
+    http_exception_handler,
+    unhandled_exception_handler,
+    validation_exception_handler,
+)
+from app.logging_config import configure_logging
+from app.middleware import RequestLoggingMiddleware
+from app.routers import health
+
+log = structlog.get_logger()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Application startup / shutdown lifecycle."""
+    configure_logging(settings.log_level)
+    log.info(
+        "application_startup",
+        env=settings.app_env,
+        debug=settings.debug,
+        event="application_startup",
+    )
+    yield
+    log.info("application_shutdown", event="application_shutdown")
+
 
 app = FastAPI(
     title="DB2API-Exposure",
@@ -12,8 +51,13 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
+    lifespan=lifespan,
 )
 
+# ── Middleware (registered outermost-first; executes in reverse order) ────────
+
+# CORSMiddleware must be registered before RequestLoggingMiddleware so CORS
+# headers are applied to error responses as well.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -22,8 +66,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(RequestLoggingMiddleware)
 
-@app.get("/api/v1/admin/health", tags=["health"])
-async def health() -> dict[str, str]:
-    """Liveness probe."""
-    return {"status": "ok"}
+# ── Exception handlers ────────────────────────────────────────────────────────
+
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
+
+# ── Routers ───────────────────────────────────────────────────────────────────
+
+app.include_router(health.router)
