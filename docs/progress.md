@@ -24,9 +24,9 @@
 
 ---
 
-## Phase 1: Backend Foundation — IN PROGRESS
+## Phase 1: Backend Foundation — COMPLETE
 
-**Started:** 2026-03-04
+**Completed:** 2026-03-04
 
 ### Goals
 Deliver the core FastAPI service skeleton with configuration, persistence, observability, and migration baseline.
@@ -55,7 +55,67 @@ Deliver the core FastAPI service skeleton with configuration, persistence, obser
 
 ---
 
-## Phase 2: Module 1 - Connections End-to-End — PENDING
+---
+
+## Phase 2: Module 1 - Connections End-to-End — COMPLETE
+
+**Completed:** 2026-03-04
+
+### Goals
+Provide complete connection lifecycle management for Oracle data sources.
+
+### Delivered
+
+#### Backend
+| File | Purpose |
+|------|---------|
+| `backend/app/crypto.py` | Fernet symmetric encryption for credentials at rest |
+| `backend/app/config.py` | Added `encryption_key` setting (Fernet key) |
+| `backend/app/schemas/connection.py` | `ConnectionCreate` / `ConnectionUpdate` / `ConnectionResponse` / `ConnectionTestResult` |
+| `backend/app/repositories/connection.py` | Async SQLAlchemy repository (get, list, create, update, delete) |
+| `backend/app/services/connection.py` | Business logic: encrypt/decrypt, uniqueness guard, Oracle connectivity test, audit logging |
+| `backend/app/routers/connections.py` | REST CRUD + `/test` under `/api/v1/admin/connections/*` |
+| `backend/tests/test_connections.py` | Crypto unit tests + schema validation tests + API integration tests |
+
+#### API Surface
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/admin/connections/` | List connections (`?active_only=true`) |
+| POST | `/api/v1/admin/connections/` | Create connection (201) |
+| GET | `/api/v1/admin/connections/{id}` | Get single connection |
+| PUT | `/api/v1/admin/connections/{id}` | Update connection |
+| DELETE | `/api/v1/admin/connections/{id}` | Delete connection (204) |
+| POST | `/api/v1/admin/connections/{id}/test` | Test Oracle connectivity |
+
+#### Security
+- Passwords encrypted with Fernet (AES-128-CBC + HMAC-SHA256) before persistence
+- `encrypted_password` never returned in any API response
+- `has_password: bool` field indicates credentials are stored
+- Audit log entries on create / update / delete / test actions
+
+#### Frontend
+| File | Purpose |
+|------|---------|
+| `frontend/src/types/connection.ts` | TypeScript interfaces matching API contract |
+| `frontend/src/lib/api.ts` | Axios-based API client (`connectionsApi`) |
+| `frontend/src/lib/queryClient.ts` | React Query `QueryClient` + key factories |
+| `frontend/src/lib/utils.ts` | `cn()` Tailwind merge utility |
+| `frontend/src/components/ui/` | Button, Input, Label, Badge, Select, Textarea, Dialog, Alert |
+| `frontend/src/components/Layout.tsx` | Sidebar + `<Outlet>` shell with nav links |
+| `frontend/src/components/connections/ConnectionForm.tsx` | Create/edit form with client-side validation |
+| `frontend/src/pages/ConnectionsPage.tsx` | List table + create/edit/delete/test dialogs |
+| `frontend/src/pages/DashboardPage.tsx` | Overview dashboard with connection count card |
+| `frontend/src/App.tsx` | React Router + QueryClientProvider wiring |
+
+#### Checks
+- `ruff check .` — clean
+- `mypy .` — clean (alembic/ excluded from strict)
+- `pytest -k "not integration"` — 22 passed
+- `eslint` — clean
+- `prettier --check` — clean
+- `tsc -b && vite build` — clean
+
+---
 
 ## Phase 3: Module 3 - Auth Configuration End-to-End — PENDING
 
