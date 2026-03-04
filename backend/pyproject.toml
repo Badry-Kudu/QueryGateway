@@ -22,6 +22,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S", "T20"]
+# B008: Depends() in default args is the canonical FastAPI DI pattern.
+"app/routers/**" = ["B008"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -33,6 +35,9 @@ plugins = ["pydantic.mypy"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "--cov=app --cov-report=term-missing --cov-report=xml"
+markers = [
+    "integration: tests that require a live PostgreSQL instance (run in CI)",
+]
 
 [tool.coverage.run]
 omit = ["tests/*", "alembic/*"]

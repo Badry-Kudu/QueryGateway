@@ -35,30 +35,8 @@ class Settings(BaseSettings):
     @field_validator("cors_origins", mode="before")
     @classmethod
     def split_cors_origins(cls, v: str | list[str]) -> list[str]:
-        # Normalize CORS origins from env:
-        # - support comma-separated strings
-        # - strip whitespace
-        # - drop empty entries
-        # - deduplicate while preserving order
-        def _normalize(origins: list[str]) -> list[str]:
-            seen: set[str] = set()
-            normalized: list[str] = []
-            for origin in origins:
-                if origin is None:
-                    continue
-                origin_str = origin.strip()
-                if not origin_str:
-                    continue
-                if origin_str in seen:
-                    continue
-                seen.add(origin_str)
-                normalized.append(origin_str)
-            return normalized
-
         if isinstance(v, str):
-            return _normalize(v.split(","))
-        if isinstance(v, list):
-            return _normalize(v)
+            return [origin.strip() for origin in v.split(",")]
         return v
 
 

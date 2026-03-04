@@ -7,7 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies required for psycopg2, oracledb, bcrypt, and healthchecks
+# Install system dependencies required for psycopg2, oracledb, bcrypt, and healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
