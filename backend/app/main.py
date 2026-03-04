@@ -25,7 +25,7 @@ from app.exceptions import (
 )
 from app.logging_config import configure_logging
 from app.middleware import RequestLoggingMiddleware
-from app.routers import health
+from app.routers import auth_methods, connections, data, health
 
 log = structlog.get_logger()
 
@@ -38,10 +38,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         "application_startup",
         env=settings.app_env,
         debug=settings.debug,
-        event="application_startup",
     )
     yield
-    log.info("application_shutdown", event="application_shutdown")
+    log.info("application_shutdown")
 
 
 app = FastAPI(
@@ -77,3 +76,6 @@ app.add_exception_handler(Exception, unhandled_exception_handler)
 # ── Routers ───────────────────────────────────────────────────────────────────
 
 app.include_router(health.router)
+app.include_router(connections.router)
+app.include_router(auth_methods.router)
+app.include_router(data.router)

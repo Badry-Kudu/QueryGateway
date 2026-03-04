@@ -11,8 +11,9 @@ alembic==1.14.0
 asyncpg==0.30.0
 psycopg2-binary==2.9.10
 
-# Oracle connectivity
-python-oracledb==2.5.0
+# Oracle connectivity (optional — install separately; see requirements-oracle.txt)
+# python-oracledb is imported lazily inside ConnectionService.test_connection()
+# so the app runs without it; only Oracle connectivity tests will fail at runtime.
 
 # Scheduler
 apscheduler==3.10.4
@@ -20,6 +21,9 @@ apscheduler==3.10.4
 # Auth
 PyJWT==2.10.1
 bcrypt==4.2.1
+
+# Encryption (credential storage at rest)
+cryptography==44.0.0
 
 # Logging
 structlog==24.4.0

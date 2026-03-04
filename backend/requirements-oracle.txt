@@ -1,0 +1,9 @@
+# Optional Oracle driver — install this file in addition to requirements.txt
+# when Oracle connectivity is needed (production or Oracle-profile docker compose).
+#
+# Installation:
+#   pip install -r requirements.txt -r requirements-oracle.txt
+#
+# Not included in the base image to avoid build failures in environments where
+# the package is unavailable; python-oracledb is imported lazily at runtime.
+python-oracledb==2.5.0

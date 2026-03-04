@@ -7,16 +7,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies required for psycopg2, oracledb, bcrypt, and healthcheck
+# Install system dependencies required for psycopg2, bcrypt, and healthcheck
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY backend/requirements.txt .
+# Install core Python dependencies
+COPY backend/requirements.txt backend/requirements-oracle.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
+# Oracle driver is optional — best-effort; app still starts without it.
+RUN pip install --no-cache-dir -r requirements-oracle.txt || \
+    echo "WARNING: python-oracledb not available; Oracle connectivity tests will fail at runtime."
 
 # Copy application code
 COPY backend/ .
