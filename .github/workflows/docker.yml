@@ -45,5 +45,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Create .env for compose validation
+        run: echo "JWT_SECRET_KEY=ci-placeholder-not-used-at-runtime" > .env
+
       - name: Validate docker-compose config
         run: docker compose config --quiet
