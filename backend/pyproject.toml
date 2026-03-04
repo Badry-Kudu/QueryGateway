@@ -30,6 +30,7 @@ python_version = "3.12"
 strict = true
 ignore_missing_imports = true
 plugins = ["pydantic.mypy"]
+exclude = ["alembic/"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

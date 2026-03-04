@@ -21,6 +21,9 @@ apscheduler==3.10.4
 PyJWT==2.10.1
 bcrypt==4.2.1
 
+# Encryption (credential storage at rest)
+cryptography==44.0.0
+
 # Logging
 structlog==24.4.0
 

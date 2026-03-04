@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     # Query execution
     query_timeout_seconds: int = 30
 
+    # Credential encryption — Fernet key (base64-encoded 32-byte key).
+    # To generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key())"
+    # MUST be set in production; the default is dev-only.
+    encryption_key: str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def split_cors_origins(cls, v: str | list[str]) -> list[str]:
