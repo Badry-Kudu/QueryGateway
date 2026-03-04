@@ -16,7 +16,7 @@ Before building from scratch, the following existing open-source and free tools 
 ### 2.1 Requirements Checklist (MVP)
 
 | # | Requirement | Weight |
-|---|-------------|--------|
+|---|-------------|--------
 | R1 | Oracle Database connectivity | Must-have |
 | R2 | Custom SQL queries as API endpoints (not just table CRUD) | Must-have |
 | R3 | Dynamic parameters in SQL queries | Must-have |
@@ -33,7 +33,8 @@ Before building from scratch, the following existing open-source and free tools 
 ### 2.2 Evaluated Tools
 
 #### A. Oracle REST Data Services (ORDS)
-- **URL:** https://www.oracle.com/database/technologies/appdev/rest.html
+
+- **URL:** <https://www.oracle.com/database/technologies/appdev/rest.html>
 - **License:** Free (proprietary, not open-source)
 - **Oracle Support:** Native — built by Oracle
 - **Custom SQL Endpoints:** Yes — RESTful service modules with SQL/PL/SQL
@@ -63,7 +64,8 @@ Before building from scratch, the following existing open-source and free tools 
 ---
 
 #### B. DreamFactory
-- **URL:** https://github.com/dreamfactorysoftware/dreamfactory
+
+- **URL:** <https://github.com/dreamfactorysoftware/dreamfactory>
 - **License:** Apache 2.0 (community edition); Commercial for Oracle
 - **Oracle Support:** Commercial edition ONLY
 - **Custom SQL Endpoints:** Yes (stored procedures, custom SQL)
@@ -92,7 +94,8 @@ Before building from scratch, the following existing open-source and free tools 
 ---
 
 #### C. Directus
-- **URL:** https://github.com/directus/directus
+
+- **URL:** <https://github.com/directus/directus>
 - **License:** BSL 1.1 (free for <$5M revenue organizations)
 - **Oracle Support:** Listed as supported (via Knex.js)
 - **Custom SQL Endpoints:** Limited — primarily CRUD on existing tables/views
@@ -121,7 +124,8 @@ Before building from scratch, the following existing open-source and free tools 
 ---
 
 #### D. Fusio
-- **URL:** https://github.com/apioo/fusio
+
+- **URL:** <https://github.com/apioo/fusio>
 - **License:** MIT (with AGPLv3 for some components)
 - **Oracle Support:** Yes (via dedicated Docker image)
 - **Custom SQL Endpoints:** Yes — actions can execute arbitrary SQL
@@ -150,7 +154,8 @@ Before building from scratch, the following existing open-source and free tools 
 ---
 
 #### E. Sandman2
-- **URL:** https://github.com/jeffknupp/sandman2
+
+- **URL:** <https://github.com/jeffknupp/sandman2>
 - **License:** Apache 2.0
 - **Oracle Support:** Yes (via SQLAlchemy)
 - **Custom SQL Endpoints:** No — auto-generates CRUD from tables only
@@ -179,7 +184,8 @@ Before building from scratch, the following existing open-source and free tools 
 ---
 
 #### F. Datasette
-- **URL:** https://datasette.io/
+
+- **URL:** <https://datasette.io/>
 - **License:** Apache 2.0
 - **Oracle Support:** No — SQLite only
 - **Tech Stack:** Python
@@ -189,7 +195,8 @@ Before building from scratch, the following existing open-source and free tools 
 ---
 
 #### G. PostgREST / Supabase / Hasura
-- **URLs:** https://postgrest.org / https://supabase.com / https://hasura.io
+
+- **URLs:** <https://postgrest.org> / <https://supabase.com> / <https://hasura.io>
 - **Oracle Support:** None — PostgreSQL only (Hasura adds SQL Server/BigQuery)
 
 **Verdict:** Eliminated — no Oracle support.
@@ -197,7 +204,8 @@ Before building from scratch, the following existing open-source and free tools 
 ---
 
 #### H. DB2Rest
-- **URL:** https://db2rest.com/ / https://github.com/kdhrubo/db2rest
+
+- **URL:** <https://db2rest.com/> / <https://github.com/kdhrubo/db2rest>
 - **License:** Apache 2.0
 - **Oracle Support:** Yes
 - **Custom SQL Endpoints:** Limited — primarily CRUD
@@ -209,7 +217,8 @@ Before building from scratch, the following existing open-source and free tools 
 ---
 
 #### I. ZenQuery
-- **URL:** https://github.com/BjoernKW/ZenQuery
+
+- **URL:** <https://github.com/BjoernKW/ZenQuery>
 - **Oracle Support:** Yes
 - **Custom SQL Endpoints:** Yes — read-only queries
 - **Web UI:** Yes — query editor
@@ -244,6 +253,7 @@ Before building from scratch, the following existing open-source and free tools 
 4. **The wizard-based API creation flow** (connection → SQL → auth → endpoint → schedule) is unique to this project
 
 **Fusio** comes closest (7/12) but fails on:
+
 - Python/FastAPI tech stack (PHP core)
 - No JSON result caching/storage
 - No Next.js frontend
@@ -270,13 +280,16 @@ DB2API-Exposure is a self-hosted, open-source platform that democratizes databas
 ### 3.3 MVP Scope
 
 #### Module 1: Database Connection Management
+
 - Create, edit, delete, and test Oracle database connections
 - Store connection details securely (encrypted credentials)
 - Connection pooling configuration
 - Health check / connectivity test
 
 #### Module 2: API Creation Wizard
+
 A step-by-step wizard flow:
+
 1. **Select Connection** — Choose from pre-configured database connections
 2. **Write SQL Query** — SQL editor with syntax highlighting; define dynamic parameters (`:param_name` bind variables)
 3. **Preview & Map Results** — Execute query preview, view JSON structure, configure column mapping/renaming
@@ -288,12 +301,14 @@ A step-by-step wizard flow:
 7. **Review & Deploy** — Summary page, then activate the endpoint
 
 #### Module 3: Authentication Configuration
+
 - Create and manage authentication methods
 - Supported types (MVP): Bearer Token, Basic Authentication, API Key (header)
 - Custom header requirements per auth method
 - Token generation and management
 
 #### Module 4: Task Scheduling
+
 - Create scheduled tasks to refresh cached API data
 - Configurable frequencies (cron-style: every N minutes/hours/daily/weekly/custom)
 - Task execution logging (start time, duration, success/failure, row count)
@@ -301,6 +316,7 @@ A step-by-step wizard flow:
 - Task enable/disable toggle
 
 #### Module 5: Settings
+
 - Configure API base URL and port
 - Application-level settings (logging level, max query timeout, etc.)
 - System health dashboard
@@ -481,6 +497,7 @@ The proposed stack from Section 3.4 is evaluated below on a component-by-compone
 | **Learning Curve** | Moderate. Type hints + dependency injection pattern requires familiarity but leads to highly maintainable code. |
 
 **Risks & Mitigations:**
+
 - *Risk:* FastAPI's dependency injection system can become complex in large applications. *Mitigation:* Establish clear patterns early (service layer, repository pattern) and document conventions.
 - *Risk:* Python GIL limits true CPU parallelism. *Mitigation:* Not a concern — this project is I/O-bound (DB queries, HTTP serving), not CPU-bound.
 
@@ -517,6 +534,7 @@ The proposed stack from Section 3.4 is evaluated below on a component-by-compone
 | **Migration Support** | Alembic (SQLAlchemy's migration tool) provides robust schema versioning for the PostgreSQL app database. |
 
 **Important Caveat:** For user-defined SQL queries (Module 2), SQLAlchemy should be used as a **connection/execution layer only** — not as an ORM. User queries must be passed through as parameterized raw SQL via `text()` with bind parameters. This distinction should be clearly architected:
+
 - **App database (PostgreSQL):** Use SQLAlchemy ORM models (connections, endpoints, schedules, logs)
 - **User databases (Oracle):** Use SQLAlchemy Core `text()` with bound parameters for raw query execution
 
@@ -568,12 +586,14 @@ The proposed stack from Section 3.4 is evaluated below on a component-by-compone
 | **SSR/SSG** | Server-side rendering provides fast initial page loads for the admin panel. |
 
 **Architectural Guidance:**
+
 - The Next.js app should function as a **pure admin UI / management console**. It should NOT serve the dynamic data API endpoints — those are handled exclusively by FastAPI.
 - Use Next.js API routes **only** for frontend concerns (session management, BFF proxying to FastAPI admin API) — not for business logic.
 - The wizard flow (Module 2) is the most complex frontend feature. React's component model with state management (React Context or Zustand) is well-suited for multi-step wizard forms.
 
 **Alternative Considered — Vite + React SPA:**
 A simpler Vite-based React SPA was considered. Since this is a self-hosted admin tool (not a public-facing website), SSR/SSG benefits are minimal. However, Next.js still wins for:
+
 1. File-based routing (faster development for the multi-page admin interface)
 2. Built-in API routes for BFF pattern
 3. Better developer tooling and conventions
@@ -610,6 +630,7 @@ The overhead of Next.js is justified by development velocity rather than runtime
 | **passlib** | ⚠️ **Concern:** passlib has also seen reduced maintenance activity. |
 
 **Recommendation:**
+
 - Replace `python-jose` with **PyJWT** (`PyJWT` package). PyJWT is actively maintained (by the jpadilla team), has 5k+ stars, frequent releases, and is the most widely adopted JWT library in the Python ecosystem. It covers all JWT needs for this project (token creation, validation, expiration handling).
 - Replace `passlib` with **bcrypt** (`bcrypt` package) directly for password hashing, or keep passlib if broader hashing algorithm support is needed. For the MVP (Bearer Token, Basic Auth, API Key), bcrypt via the `bcrypt` package is sufficient and more actively maintained.
 
@@ -625,6 +646,7 @@ The overhead of Next.js is justified by development velocity rather than runtime
 **Verdict: ✅ RECOMMENDED.**
 
 structlog provides structured JSON logging which is essential for:
+
 - Task execution logging (Module 4: start time, duration, success/failure, row count)
 - API access logging (Section 3.7: timestamp, IP, user, endpoint, status)
 - Integration with log aggregation tools (ELK, CloudWatch, etc.) in production deployments
@@ -638,6 +660,7 @@ No changes recommended.
 **Verdict: ✅ STRONGLY RECOMMENDED.**
 
 Essential for a self-hosted tool. Docker Compose should define:
+
 - `api` service (FastAPI backend)
 - `web` service (Next.js frontend)
 - `db` service (PostgreSQL)
@@ -666,6 +689,7 @@ No changes recommended.
 ### 5.4 Additional Recommendations
 
 1. **Monorepo Structure:** Organize the project as a monorepo with clear separation:
+
    ```
    DB2API-Exposure/
    ├── backend/          # FastAPI application
