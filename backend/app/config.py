@@ -34,8 +34,8 @@ class Settings(BaseSettings):
 
     # Credential encryption — Fernet key (base64-encoded 32-byte key).
     # To generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key())"
-    # MUST be set in production; the default is dev-only.
-    encryption_key: str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    # MUST be provided via environment; no default is set to avoid shipping a known key.
+    encryption_key: str
 
     @field_validator("cors_origins", mode="before")
     @classmethod
