@@ -38,10 +38,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         "application_startup",
         env=settings.app_env,
         debug=settings.debug,
-        event="application_startup",
     )
     yield
-    log.info("application_shutdown", event="application_shutdown")
+    log.info("application_shutdown")
 
 
 app = FastAPI(

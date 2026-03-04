@@ -45,7 +45,7 @@ async def readiness(db: AsyncSession = Depends(get_db)) -> JSONResponse:
         await db.execute(text("SELECT 1"))
         checks["db"] = "ok"
     except Exception as exc:
-        log.error("db_health_check_failed", error=str(exc), event="db_health_check_failed")
+        log.error("db_health_check_failed", error=str(exc))
         checks["db"] = "error"
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
