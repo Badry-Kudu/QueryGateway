@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { Database } from "lucide-react";
+import { Database, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { connectionsApi } from "@/lib/api";
+import { authMethodsApi, connectionsApi } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
 
 export function DashboardPage() {
@@ -12,7 +12,13 @@ export function DashboardPage() {
     queryFn: () => connectionsApi.list(false),
   });
 
-  const active = connections.filter((c) => c.is_active).length;
+  const { data: authMethods = [] } = useQuery({
+    queryKey: queryKeys.authMethods.list(false),
+    queryFn: () => authMethodsApi.list(false),
+  });
+
+  const activeConns = connections.filter((c) => c.is_active).length;
+  const activeAuth = authMethods.filter((a) => a.is_active).length;
 
   return (
     <div className="mx-auto max-w-4xl p-6">
@@ -29,12 +35,30 @@ export function DashboardPage() {
             <div>
               <p className="text-sm font-medium">Oracle Connections</p>
               <p className="text-xs text-muted-foreground">
-                {active} active / {connections.length} total
+                {activeConns} active / {connections.length} total
               </p>
             </div>
           </div>
           <Button asChild variant="outline" size="sm">
             <Link to="/connections">Manage connections</Link>
+          </Button>
+        </div>
+
+        {/* Auth methods card */}
+        <div className="rounded-lg border bg-card p-5">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="rounded-md bg-primary/10 p-2">
+              <Shield className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Auth Methods</p>
+              <p className="text-xs text-muted-foreground">
+                {activeAuth} active / {authMethods.length} total
+              </p>
+            </div>
+          </div>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/auth">Manage auth</Link>
           </Button>
         </div>
       </div>

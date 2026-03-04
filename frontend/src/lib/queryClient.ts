@@ -16,4 +16,9 @@ export const queryKeys = {
     list: (activeOnly: boolean) => ["connections", "list", activeOnly] as const,
     detail: (id: string) => ["connections", id] as const,
   },
+  authMethods: {
+    all: ["authMethods"] as const,
+    list: (activeOnly: boolean) => ["authMethods", "list", activeOnly] as const,
+    detail: (id: string) => ["authMethods", id] as const,
+  },
 };

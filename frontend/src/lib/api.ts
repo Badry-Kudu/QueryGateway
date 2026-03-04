@@ -6,6 +6,14 @@ import type {
   ConnectionTestResult,
   ConnectionUpdate,
 } from "@/types/connection";
+import type {
+  ApiKeyIssuedResponse,
+  AuthMethod,
+  AuthMethodCreate,
+  AuthMethodUpdate,
+  RotateResponse,
+  TokenIssuedResponse,
+} from "@/types/auth_method";
 
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000",
@@ -36,6 +44,38 @@ export const connectionsApi = {
 
   test: (id: string): Promise<ConnectionTestResult> =>
     http.post<ConnectionTestResult>(`/api/v1/admin/connections/${id}/test`).then((r) => r.data),
+};
+
+// ── Auth Methods ───────────────────────────────────────────────────────────
+
+export const authMethodsApi = {
+  list: (activeOnly = false): Promise<AuthMethod[]> =>
+    http
+      .get<AuthMethod[]>("/api/v1/admin/auth/", { params: { active_only: activeOnly } })
+      .then((r) => r.data),
+
+  get: (id: string): Promise<AuthMethod> =>
+    http.get<AuthMethod>(`/api/v1/admin/auth/${id}`).then((r) => r.data),
+
+  create: (payload: AuthMethodCreate): Promise<AuthMethod> =>
+    http.post<AuthMethod>("/api/v1/admin/auth/", payload).then((r) => r.data),
+
+  createWithKey: (payload: AuthMethodCreate): Promise<ApiKeyIssuedResponse> =>
+    http.post<ApiKeyIssuedResponse>("/api/v1/admin/auth/with-key", payload).then((r) => r.data),
+
+  update: (id: string, payload: AuthMethodUpdate): Promise<AuthMethod> =>
+    http.put<AuthMethod>(`/api/v1/admin/auth/${id}`, payload).then((r) => r.data),
+
+  delete: (id: string): Promise<void> =>
+    http.delete(`/api/v1/admin/auth/${id}`).then(() => undefined),
+
+  issueToken: (id: string): Promise<TokenIssuedResponse> =>
+    http.post<TokenIssuedResponse>(`/api/v1/admin/auth/${id}/issue-token`).then((r) => r.data),
+
+  rotate: (id: string): Promise<RotateResponse | ApiKeyIssuedResponse> =>
+    http
+      .post<RotateResponse | ApiKeyIssuedResponse>(`/api/v1/admin/auth/${id}/rotate`)
+      .then((r) => r.data),
 };
 
 // ── Error helpers ──────────────────────────────────────────────────────────

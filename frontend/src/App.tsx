@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { Layout } from "@/components/Layout";
 import { queryClient } from "@/lib/queryClient";
+import { AuthMethodsPage } from "@/pages/AuthMethodsPage";
 import { ConnectionsPage } from "@/pages/ConnectionsPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 
@@ -14,6 +15,7 @@ function App() {
           <Route element={<Layout />}>
             <Route index element={<DashboardPage />} />
             <Route path="connections" element={<ConnectionsPage />} />
+            <Route path="auth" element={<AuthMethodsPage />} />
             {/* Future phases */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
