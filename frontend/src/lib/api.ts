@@ -14,6 +14,13 @@ import type {
   RotateResponse,
   TokenIssuedResponse,
 } from "@/types/auth_method";
+import type {
+  Endpoint,
+  EndpointCreate,
+  EndpointUpdate,
+  SqlPreviewRequest,
+  SqlPreviewResponse,
+} from "@/types/endpoint";
 
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000",
@@ -76,6 +83,30 @@ export const authMethodsApi = {
     http
       .post<RotateResponse | ApiKeyIssuedResponse>(`/api/v1/admin/auth/${id}/rotate`)
       .then((r) => r.data),
+};
+
+// ── Endpoints ─────────────────────────────────────────────────────────────
+
+export const endpointsApi = {
+  list: (activeOnly = false): Promise<Endpoint[]> =>
+    http
+      .get<Endpoint[]>("/api/v1/admin/endpoints/", { params: { active_only: activeOnly } })
+      .then((r) => r.data),
+
+  get: (id: string): Promise<Endpoint> =>
+    http.get<Endpoint>(`/api/v1/admin/endpoints/${id}`).then((r) => r.data),
+
+  create: (payload: EndpointCreate): Promise<Endpoint> =>
+    http.post<Endpoint>("/api/v1/admin/endpoints/", payload).then((r) => r.data),
+
+  update: (id: string, payload: EndpointUpdate): Promise<Endpoint> =>
+    http.put<Endpoint>(`/api/v1/admin/endpoints/${id}`, payload).then((r) => r.data),
+
+  delete: (id: string): Promise<void> =>
+    http.delete(`/api/v1/admin/endpoints/${id}`).then(() => undefined),
+
+  preview: (payload: SqlPreviewRequest): Promise<SqlPreviewResponse> =>
+    http.post<SqlPreviewResponse>("/api/v1/admin/endpoints/preview", payload).then((r) => r.data),
 };
 
 // ── Error helpers ──────────────────────────────────────────────────────────

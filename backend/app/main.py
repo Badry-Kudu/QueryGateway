@@ -25,7 +25,7 @@ from app.exceptions import (
 )
 from app.logging_config import configure_logging
 from app.middleware import RequestLoggingMiddleware
-from app.routers import auth_methods, connections, data, health
+from app.routers import auth_methods, connections, data, endpoints, health
 
 log = structlog.get_logger()
 
@@ -78,4 +78,5 @@ app.add_exception_handler(Exception, unhandled_exception_handler)
 app.include_router(health.router)
 app.include_router(connections.router)
 app.include_router(auth_methods.router)
+app.include_router(endpoints.router)
 app.include_router(data.router)

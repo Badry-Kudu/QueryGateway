@@ -6,6 +6,7 @@ import { queryClient } from "@/lib/queryClient";
 import { AuthMethodsPage } from "@/pages/AuthMethodsPage";
 import { ConnectionsPage } from "@/pages/ConnectionsPage";
 import { DashboardPage } from "@/pages/DashboardPage";
+import { EndpointsPage } from "@/pages/EndpointsPage";
 
 function App() {
   return (
@@ -16,7 +17,7 @@ function App() {
             <Route index element={<DashboardPage />} />
             <Route path="connections" element={<ConnectionsPage />} />
             <Route path="auth" element={<AuthMethodsPage />} />
-            {/* Future phases */}
+            <Route path="endpoints" element={<EndpointsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

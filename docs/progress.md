@@ -117,9 +117,139 @@ Provide complete connection lifecycle management for Oracle data sources.
 
 ---
 
-## Phase 3: Module 3 - Auth Configuration End-to-End — PENDING
+## Phase 3: Module 3 - Auth Configuration End-to-End — COMPLETE
 
-## Phase 4: Module 2 - API Creation Wizard End-to-End — PENDING
+**Completed:** 2026-03-05
+
+### Goals
+Deliver configurable endpoint authentication using PyJWT + bcrypt.
+
+### Delivered
+
+#### Backend
+| File | Purpose |
+|------|---------|
+| `backend/app/auth/jwt_utils.py` | JWT creation/verification (PyJWT, HS256/384/512) |
+| `backend/app/auth/hashing.py` | bcrypt password hashing, API key generation, signing secret generation |
+| `backend/app/models/auth_method.py` | `AuthMethod` model with `AuthMethodType` enum (bearer/basic/api_key) |
+| `backend/app/models/access_log.py` | `AccessLog` model for per-request access audit trail |
+| `backend/app/schemas/auth_method.py` | `AuthMethodCreate` / `AuthMethodUpdate` / `AuthMethodResponse` / `TokenIssuedResponse` / `ApiKeyIssuedResponse` / `RotateResponse` |
+| `backend/app/repositories/auth_method.py` | Async SQLAlchemy repository (get, list, create, update, delete) |
+| `backend/app/services/auth_method.py` | Business logic: CRUD, token issuance, credential rotation, verification (bearer/basic/api_key) |
+| `backend/app/routers/auth_methods.py` | REST CRUD + `/issue-token` + `/rotate` under `/api/v1/admin/auth/*` |
+| `backend/app/routers/data.py` | Auth enforcement infrastructure: `_enforce_auth()` and `_write_access_log()` for Phase 4 integration |
+| `backend/tests/test_auth_methods.py` | bcrypt/JWT unit tests + schema validation + API integration tests |
+
+#### API Surface
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/admin/auth/` | List auth methods (`?active_only=true`) |
+| POST | `/api/v1/admin/auth/` | Create auth method (201) |
+| POST | `/api/v1/admin/auth/with-key` | Create API key method, returns key (201) |
+| GET | `/api/v1/admin/auth/{id}` | Get single auth method |
+| PUT | `/api/v1/admin/auth/{id}` | Update auth method |
+| DELETE | `/api/v1/admin/auth/{id}` | Delete auth method (204) |
+| POST | `/api/v1/admin/auth/{id}/issue-token` | Issue JWT for bearer method |
+| POST | `/api/v1/admin/auth/{id}/rotate` | Rotate signing secret or API key |
+
+#### Security
+- Passwords hashed with bcrypt (never returned in API responses)
+- Bearer signing secrets encrypted with Fernet before storage in `config_json`
+- API keys shown once only on creation/rotation
+- JWT tokens stateless — not stored server-side, verified via signing secret
+- Token expiry enforced via `exp` claim
+- All three auth types supported: Bearer JWT, Basic Auth, API Key
+
+#### Frontend
+| File | Purpose |
+|------|---------|
+| `frontend/src/types/auth_method.ts` | TypeScript interfaces matching API contract |
+| `frontend/src/lib/api.ts` | Axios-based `authMethodsApi` client |
+| `frontend/src/components/auth/AuthMethodForm.tsx` | Create/edit form with type-specific fields |
+| `frontend/src/pages/AuthMethodsPage.tsx` | List table + create/edit/delete/issue/rotate dialogs |
+
+#### Checks
+- `ruff check .` — clean
+- `mypy .` — clean
+- `pytest -k "not integration"` — all passed
+- `eslint` — clean
+- `prettier --check` — clean
+- `tsc -b && vite build` — clean
+
+---
+
+## Phase 4: Module 2 - API Creation Wizard End-to-End — COMPLETE
+
+**Completed:** 2026-03-05
+
+### Goals
+Deliver the core wizard that converts parameterized SQL into deployable versioned data endpoints.
+
+### Delivered
+
+#### Backend
+| File | Purpose |
+|------|---------|
+| `backend/app/schemas/endpoint.py` | `EndpointCreate` / `EndpointUpdate` / `EndpointResponse` / `SqlPreviewRequest` / `SqlPreviewResponse` / `ParamDescriptor` + SQL safety validation + bind parameter extraction |
+| `backend/app/repositories/endpoint.py` | Async SQLAlchemy repository (get_all, get_by_id, get_by_name, get_by_path, create, update, delete) |
+| `backend/app/services/endpoint.py` | Business logic: CRUD, uniqueness (name + path), connection validation, SQL preview orchestration, column map handling |
+| `backend/app/routers/endpoints.py` | REST CRUD + `/preview` under `/api/v1/admin/endpoints/*` |
+| `backend/app/sql/__init__.py` | SQL execution module |
+| `backend/app/sql/executor.py` | Oracle SQL execution engine via python-oracledb with query timeout, thread delegation, structured logging |
+| `backend/app/routers/data.py` | **Upgraded from Phase 3 stub**: Dynamic endpoint resolution, auth enforcement, parameter coercion, column mapping, access logging |
+| `backend/tests/test_endpoints.py` | SQL safety unit tests + schema validation + bind parameter extraction + API integration tests |
+
+#### Admin API Surface
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/admin/endpoints/` | List endpoints (`?active_only=true`) |
+| POST | `/api/v1/admin/endpoints/` | Create endpoint (201) |
+| GET | `/api/v1/admin/endpoints/{id}` | Get single endpoint |
+| PUT | `/api/v1/admin/endpoints/{id}` | Update endpoint |
+| DELETE | `/api/v1/admin/endpoints/{id}` | Delete endpoint (204) |
+| POST | `/api/v1/admin/endpoints/preview` | Preview SQL execution (sample results) |
+
+#### Dynamic Data API
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/data/{path}` | Execute endpoint query, enforce auth, return JSON data with metadata |
+
+#### SQL Safety
+- Named bind variables (`:param_name`) extracted and validated
+- Unsafe interpolation patterns rejected (string concat, f-strings, template literals, PL/SQL concat)
+- Parameters validated and coerced through typed `ParamDescriptor` schemas
+- All SQL executed via python-oracledb with configurable query timeout
+
+#### Data Endpoint Features
+- Dynamic path-based endpoint resolution (no service restart needed)
+- Per-endpoint auth enforcement (bearer/basic/api_key via Phase 3 infrastructure)
+- Parameter extraction from query string with type coercion (string/integer/float/boolean)
+- Required parameter validation with defaults support
+- Column rename mapping (`column_map_json`)
+- Deprecation headers (`Deprecation: true`, `Sunset`) for deprecated endpoints
+- Access logging for all requests (success, auth failure, parameter errors, query errors)
+- Response metadata: row_count, query_duration_ms, endpoint path, version, data_strategy
+
+#### Frontend
+| File | Purpose |
+|------|---------|
+| `frontend/src/types/endpoint.ts` | TypeScript interfaces matching API contract |
+| `frontend/src/lib/api.ts` | Axios-based `endpointsApi` client (CRUD + preview) |
+| `frontend/src/components/endpoints/SqlEditor.tsx` | CodeMirror 6 SQL editor with syntax highlighting and dark theme |
+| `frontend/src/components/endpoints/EndpointWizard.tsx` | Multi-step wizard: Connection → SQL → Parameters → Auth & Config → Review & Publish |
+| `frontend/src/pages/EndpointsPage.tsx` | List table + wizard + edit/delete dialogs + URL copy/open actions |
+| `frontend/src/pages/DashboardPage.tsx` | Updated with endpoints count card |
+| `frontend/src/components/Layout.tsx` | Updated with API Endpoints nav item |
+
+#### Checks
+- `ruff check .` — clean
+- `mypy .` — clean (50 files, 0 errors)
+- `pytest -k "not integration"` — 57 passed
+- `eslint` — clean
+- `prettier --check` — clean
+- `tsc -b && vite build` — clean
+
+---
 
 ## Phase 5: Module 4 - Scheduling + Snapshot Cache End-to-End — PENDING
 
