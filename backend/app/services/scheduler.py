@@ -134,8 +134,8 @@ async def execute_scheduled_job(schedule_id: str, endpoint_id: str) -> None:
             )
             await snap_repo.create(snapshot)
 
-            # Clean up old snapshots (keep last 5)
-            await snap_repo.delete_old(eid, keep=5)
+            # Clean up old snapshots according to configured retention
+            await snap_repo.delete_old(eid, keep=settings.snapshot_retention_count)
 
             # Mark job success
             finished_at = datetime.now(UTC)
