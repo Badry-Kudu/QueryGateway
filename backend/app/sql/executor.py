@@ -59,7 +59,7 @@ def _execute_sync(
             for i, col in enumerate(columns):
                 val = row[i]
                 # Convert non-JSON-serializable types to strings
-                if val is not None and not isinstance(val, str | int | float | bool):
+                if val is not None and not isinstance(val, (str, int, float, bool)):
                     val = str(val)
                 row_dict[col] = val
             rows.append(row_dict)
