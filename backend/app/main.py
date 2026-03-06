@@ -25,7 +25,8 @@ from app.exceptions import (
 )
 from app.logging_config import configure_logging
 from app.middleware import RequestLoggingMiddleware
-from app.routers import auth_methods, connections, data, endpoints, health
+from app.routers import auth_methods, connections, data, endpoints, health, schedules
+from app.services.scheduler import start_scheduler, stop_scheduler
 
 log = structlog.get_logger()
 
@@ -39,7 +40,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         env=settings.app_env,
         debug=settings.debug,
     )
+    start_scheduler()
     yield
+    stop_scheduler()
     log.info("application_shutdown")
 
 
@@ -79,4 +82,5 @@ app.include_router(health.router)
 app.include_router(connections.router)
 app.include_router(auth_methods.router)
 app.include_router(endpoints.router)
+app.include_router(schedules.router)
 app.include_router(data.router)

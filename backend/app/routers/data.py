@@ -2,6 +2,7 @@
 
 Phase 3: Auth enforcement infrastructure.
 Phase 4: Dynamic endpoint resolution and SQL execution.
+Phase 5: Snapshot mode — serve cached results for snapshot-strategy endpoints.
 
 Every request to /api/v1/data/* is subject to per-endpoint auth verification
 and access logging.  Unauthenticated or unauthorized requests are rejected
@@ -21,6 +22,7 @@ from app.models.access_log import AccessLog
 from app.repositories.auth_method import AuthMethodRepository
 from app.repositories.connection import ConnectionRepository
 from app.repositories.endpoint import EndpointRepository
+from app.repositories.snapshot import SnapshotRepository
 from app.services.auth_method import AuthMethodService
 from app.sql.executor import SqlExecutionError, execute_query
 
@@ -191,8 +193,8 @@ def _coerce_param(value: str, param_type: str) -> object:
     "/{full_path:path}",
     summary="Dynamic data endpoint",
     description=(
-        "Resolve the endpoint by path, enforce auth, execute SQL, and return "
-        "data.  Supports live query execution against Oracle connections."
+        "Resolve the endpoint by path, enforce auth, execute SQL or serve "
+        "cached snapshot, and return data."
     ),
     include_in_schema=True,
 )
@@ -201,7 +203,7 @@ async def data_endpoint(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
-    """Dynamic endpoint lookup, auth enforcement, and SQL execution."""
+    """Dynamic endpoint lookup, auth enforcement, and SQL execution or snapshot serving."""
     start = time.monotonic()
     path = full_path.strip("/").lower()
     principal: str | None = None
@@ -249,6 +251,68 @@ async def data_endpoint(
         # Enforce auth if configured
         if ep.auth_method_id is not None:
             principal = await _enforce_auth(request, ep.auth_method_id, db)
+
+        # ── Snapshot mode ─────────────────────────────────────────────────
+        if ep.data_strategy.value == "snapshot":
+            snap_repo = SnapshotRepository(db)
+            snapshot = await snap_repo.get_latest_by_endpoint(ep.id)
+
+            if snapshot is None:
+                duration_ms = (time.monotonic() - start) * 1000
+                await _write_access_log(
+                    db,
+                    request=request,
+                    path=f"/api/v1/data/{full_path}",
+                    status_code=503,
+                    duration_ms=duration_ms,
+                    principal=principal,
+                    endpoint_id=endpoint_id,
+                )
+                return JSONResponse(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    content={
+                        "detail": "No snapshot available yet. "
+                        "Wait for the scheduled job to run."
+                    },
+                )
+
+            snapshot_data: list[dict[str, object]] = (
+                snapshot.data if isinstance(snapshot.data, list) else []
+            )
+            duration_ms = (time.monotonic() - start) * 1000
+
+            await _write_access_log(
+                db,
+                request=request,
+                path=f"/api/v1/data/{full_path}",
+                status_code=200,
+                duration_ms=duration_ms,
+                principal=principal,
+                endpoint_id=endpoint_id,
+            )
+
+            response_headers: dict[str, str] = {}
+            if ep.is_deprecated:
+                response_headers["Deprecation"] = "true"
+                if ep.deprecation_note:
+                    response_headers["Sunset"] = ep.deprecation_note
+
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "data": snapshot_data,
+                    "meta": {
+                        "row_count": snapshot.row_count,
+                        "endpoint": path,
+                        "version": ep.version,
+                        "data_strategy": "snapshot",
+                        "snapshot_created_at": snapshot.created_at.isoformat(),
+                    },
+                },
+                headers=response_headers,
+            )
+
+        # ── Live mode ─────────────────────────────────────────────────────
 
         # Build query parameters from request query string
         params: dict[str, object] = {}
@@ -371,7 +435,7 @@ async def data_endpoint(
         )
 
         # Build response
-        response_headers: dict[str, str] = {}
+        response_headers = {}
         if ep.is_deprecated:
             response_headers["Deprecation"] = "true"
             if ep.deprecation_note:

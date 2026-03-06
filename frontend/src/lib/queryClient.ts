@@ -26,4 +26,11 @@ export const queryKeys = {
     list: (activeOnly: boolean) => ["endpoints", "list", activeOnly] as const,
     detail: (id: string) => ["endpoints", id] as const,
   },
+  schedules: {
+    all: ["schedules"] as const,
+    list: (activeOnly: boolean) => ["schedules", "list", activeOnly] as const,
+    detail: (id: string) => ["schedules", id] as const,
+    jobRuns: (scheduleId?: string) => ["schedules", "jobRuns", scheduleId] as const,
+    snapshots: (endpointId: string) => ["schedules", "snapshots", endpointId] as const,
+  },
 };

@@ -251,7 +251,86 @@ Deliver the core wizard that converts parameterized SQL into deployable versione
 
 ---
 
-## Phase 5: Module 4 - Scheduling + Snapshot Cache End-to-End — PENDING
+## Phase 5: Module 4 - Scheduling + Snapshot Cache End-to-End — COMPLETE
+
+**Completed:** 2026-03-06
+
+### Goals
+Enable scheduled data refresh with persistent jobs and cached response serving.
+
+### Delivered
+
+#### Backend
+| File | Purpose |
+|------|---------|
+| `backend/app/schemas/schedule.py` | `ScheduleCreate` / `ScheduleUpdate` / `ScheduleResponse` / `JobRunResponse` / `SnapshotResponse` / `SnapshotDetailResponse` |
+| `backend/app/repositories/schedule.py` | Async SQLAlchemy repository (get_all, get_by_id, get_by_endpoint_id, create, update, delete) |
+| `backend/app/repositories/job_run.py` | Async SQLAlchemy repository (get_all with filters, get_by_id, create, update) |
+| `backend/app/repositories/snapshot.py` | Async SQLAlchemy repository (get_latest_by_endpoint, get_by_endpoint, create, delete_old with retention) |
+| `backend/app/services/scheduler.py` | APScheduler 3.x AsyncIOScheduler integration: lifecycle (start/stop), job execution (Oracle query + snapshot persistence), job management (add/remove/pause/resume) |
+| `backend/app/services/schedule.py` | Business logic: CRUD, one-schedule-per-endpoint uniqueness, run-now, pause/resume, job run queries, snapshot queries |
+| `backend/app/routers/schedules.py` | REST CRUD + `/run` + `/pause` + `/resume` + job runs + snapshots under `/api/v1/admin/schedules/*` |
+| `backend/app/routers/data.py` | **Updated**: Snapshot mode serving — snapshot-strategy endpoints return cached JSONB with freshness metadata |
+| `backend/app/main.py` | **Updated**: APScheduler lifecycle (start on startup, stop on shutdown), schedule router registration |
+| `backend/tests/test_schedules.py` | Schema validation unit tests + API integration tests |
+
+#### Admin API Surface
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/admin/schedules/` | List schedules (`?active_only=true`) |
+| POST | `/api/v1/admin/schedules/` | Create schedule (201) |
+| GET | `/api/v1/admin/schedules/{id}` | Get single schedule |
+| PUT | `/api/v1/admin/schedules/{id}` | Update schedule |
+| DELETE | `/api/v1/admin/schedules/{id}` | Delete schedule (204) |
+| POST | `/api/v1/admin/schedules/{id}/run` | Run schedule now (202) |
+| POST | `/api/v1/admin/schedules/{id}/pause` | Pause schedule |
+| POST | `/api/v1/admin/schedules/{id}/resume` | Resume schedule |
+| GET | `/api/v1/admin/schedules/jobs/` | List job runs (`?schedule_id=&endpoint_id=&limit=`) |
+| GET | `/api/v1/admin/schedules/jobs/{id}` | Get single job run |
+| GET | `/api/v1/admin/schedules/snapshots/{endpoint_id}` | List snapshots for endpoint |
+| GET | `/api/v1/admin/schedules/snapshots/detail/{id}` | Get snapshot with data |
+
+#### Scheduling Features
+- APScheduler 3.x with AsyncIOScheduler integration
+- Cron (5-field) and interval (seconds) schedule types
+- Job coalescing (max 1 instance per job, 60s misfire grace time)
+- Scheduler lifecycle tied to FastAPI startup/shutdown
+- One schedule per endpoint uniqueness constraint
+
+#### Snapshot Cache Features
+- JSONB snapshot storage in PostgreSQL
+- Automatic snapshot retention (keeps latest 5 per endpoint)
+- Snapshot-mode data endpoints serve cached results with `snapshot_created_at` metadata
+- Fallback: 503 if no snapshot available yet
+- Column mapping applied during job execution
+
+#### Job Execution
+- Immutable job run audit records (started_at, finished_at, status, row_count, error_detail)
+- Status tracking: running → success/failed/timeout
+- Default parameter values used for scheduled queries
+- Structured logging with job_id, run_id, row_count, duration_ms, success fields
+
+#### Frontend
+| File | Purpose |
+|------|---------|
+| `frontend/src/types/schedule.ts` | TypeScript interfaces matching API contract |
+| `frontend/src/lib/api.ts` | Axios-based `schedulesApi` client (CRUD + run/pause/resume + jobs + snapshots) |
+| `frontend/src/lib/queryClient.ts` | Schedule query key factories |
+| `frontend/src/pages/SchedulesPage.tsx` | List table + create/delete dialogs + run now/pause/resume controls + job runs viewer |
+| `frontend/src/pages/DashboardPage.tsx` | Updated with schedules count card (4-column grid) |
+| `frontend/src/components/Layout.tsx` | Updated with Schedules nav item, version bumped to v0.5.0 |
+| `frontend/src/App.tsx` | Updated with /schedules route |
+
+#### Checks
+- `ruff check .` — clean
+- `mypy .` — clean (58 files, 0 errors)
+- `pytest -k "not integration"` — 69 passed
+- `eslint` — clean
+- `prettier --check` — clean
+- `tsc -b && vite build` — clean
+- `vitest` — 2 passed
+
+---
 
 ## Phase 6: Module 5 - Settings + Health Dashboard End-to-End — PENDING
 

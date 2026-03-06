@@ -21,6 +21,13 @@ import type {
   SqlPreviewRequest,
   SqlPreviewResponse,
 } from "@/types/endpoint";
+import type {
+  JobRun,
+  Schedule,
+  ScheduleCreate,
+  ScheduleUpdate,
+  SnapshotSummary,
+} from "@/types/schedule";
 
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000",
@@ -107,6 +114,50 @@ export const endpointsApi = {
 
   preview: (payload: SqlPreviewRequest): Promise<SqlPreviewResponse> =>
     http.post<SqlPreviewResponse>("/api/v1/admin/endpoints/preview", payload).then((r) => r.data),
+};
+
+// ── Schedules ─────────────────────────────────────────────────────────────
+
+export const schedulesApi = {
+  list: (activeOnly = false): Promise<Schedule[]> =>
+    http
+      .get<Schedule[]>("/api/v1/admin/schedules/", { params: { active_only: activeOnly } })
+      .then((r) => r.data),
+
+  get: (id: string): Promise<Schedule> =>
+    http.get<Schedule>(`/api/v1/admin/schedules/${id}`).then((r) => r.data),
+
+  create: (payload: ScheduleCreate): Promise<Schedule> =>
+    http.post<Schedule>("/api/v1/admin/schedules/", payload).then((r) => r.data),
+
+  update: (id: string, payload: ScheduleUpdate): Promise<Schedule> =>
+    http.put<Schedule>(`/api/v1/admin/schedules/${id}`, payload).then((r) => r.data),
+
+  delete: (id: string): Promise<void> =>
+    http.delete(`/api/v1/admin/schedules/${id}`).then(() => undefined),
+
+  runNow: (id: string): Promise<{ status: string }> =>
+    http.post<{ status: string }>(`/api/v1/admin/schedules/${id}/run`).then((r) => r.data),
+
+  pause: (id: string): Promise<Schedule> =>
+    http.post<Schedule>(`/api/v1/admin/schedules/${id}/pause`).then((r) => r.data),
+
+  resume: (id: string): Promise<Schedule> =>
+    http.post<Schedule>(`/api/v1/admin/schedules/${id}/resume`).then((r) => r.data),
+
+  listJobRuns: (params?: {
+    schedule_id?: string;
+    endpoint_id?: string;
+    limit?: number;
+  }): Promise<JobRun[]> =>
+    http.get<JobRun[]>("/api/v1/admin/schedules/jobs/", { params }).then((r) => r.data),
+
+  listSnapshots: (endpointId: string, limit = 10): Promise<SnapshotSummary[]> =>
+    http
+      .get<SnapshotSummary[]>(`/api/v1/admin/schedules/snapshots/${endpointId}`, {
+        params: { limit },
+      })
+      .then((r) => r.data),
 };
 
 // ── Error helpers ──────────────────────────────────────────────────────────

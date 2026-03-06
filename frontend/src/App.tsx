@@ -7,6 +7,7 @@ import { AuthMethodsPage } from "@/pages/AuthMethodsPage";
 import { ConnectionsPage } from "@/pages/ConnectionsPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { EndpointsPage } from "@/pages/EndpointsPage";
+import { SchedulesPage } from "@/pages/SchedulesPage";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
             <Route path="connections" element={<ConnectionsPage />} />
             <Route path="auth" element={<AuthMethodsPage />} />
             <Route path="endpoints" element={<EndpointsPage />} />
+            <Route path="schedules" element={<SchedulesPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
