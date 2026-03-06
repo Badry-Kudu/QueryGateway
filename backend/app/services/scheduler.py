@@ -6,8 +6,8 @@ Responsibilities:
 - Persist job runs and snapshots.
 - Update schedule metadata (last_run_at, next_run_at).
 
-The scheduler uses a PostgreSQL-backed job store so jobs persist across
-process restarts.
+The scheduler currently relies on APScheduler's in-memory job store;
+scheduled jobs themselves do not persist across process restarts.
 """
 
 import uuid
