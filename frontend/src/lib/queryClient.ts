@@ -33,4 +33,13 @@ export const queryKeys = {
     jobRuns: (scheduleId?: string) => ["schedules", "jobRuns", scheduleId] as const,
     snapshots: (endpointId: string) => ["schedules", "snapshots", endpointId] as const,
   },
+  settings: {
+    all: ["settings"] as const,
+    list: () => ["settings", "list"] as const,
+    detail: (key: string) => ["settings", key] as const,
+    restartKeys: () => ["settings", "restartKeys"] as const,
+  },
+  health: {
+    dashboard: () => ["health", "dashboard"] as const,
+  },
 };

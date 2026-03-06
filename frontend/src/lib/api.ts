@@ -28,6 +28,7 @@ import type {
   ScheduleUpdate,
   SnapshotSummary,
 } from "@/types/schedule";
+import type { HealthDashboard, Setting, SettingBulkUpdate } from "@/types/setting";
 
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000",
@@ -158,6 +159,40 @@ export const schedulesApi = {
         params: { limit },
       })
       .then((r) => r.data),
+};
+
+// ── Settings ──────────────────────────────────────────────────────────────
+
+export const settingsApi = {
+  list: (): Promise<Setting[]> =>
+    http.get<Setting[]>("/api/v1/admin/settings/").then((r) => r.data),
+
+  get: (key: string): Promise<Setting> =>
+    http.get<Setting>(`/api/v1/admin/settings/${key}`).then((r) => r.data),
+
+  update: (key: string, value: string): Promise<Setting> =>
+    http.put<Setting>(`/api/v1/admin/settings/${key}`, { value }).then((r) => r.data),
+
+  bulkUpdate: (payload: SettingBulkUpdate): Promise<Setting[]> =>
+    http.put<Setting[]>("/api/v1/admin/settings/", payload).then((r) => r.data),
+
+  restartKeys: (): Promise<string[]> =>
+    http.get<string[]>("/api/v1/admin/settings/restart-keys").then((r) => r.data),
+};
+
+// ── Health ────────────────────────────────────────────────────────────────
+
+export const healthApi = {
+  live: (): Promise<{ status: string }> =>
+    http.get<{ status: string }>("/api/v1/admin/health/live").then((r) => r.data),
+
+  ready: (): Promise<{ status: string; checks: Record<string, string> }> =>
+    http
+      .get<{ status: string; checks: Record<string, string> }>("/api/v1/admin/health/ready")
+      .then((r) => r.data),
+
+  dashboard: (): Promise<HealthDashboard> =>
+    http.get<HealthDashboard>("/api/v1/admin/health/dashboard").then((r) => r.data),
 };
 
 // ── Error helpers ──────────────────────────────────────────────────────────
