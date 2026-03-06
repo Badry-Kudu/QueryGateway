@@ -161,7 +161,7 @@ async def get_health_dashboard(db: AsyncSession) -> dict[str, object]:
                     schedule.interval_seconds * 2 / 3600, 1.0
                 )
 
-            age = datetime.now(UTC) - latest_snap.created_at.replace(tzinfo=UTC)
+            age = datetime.now(UTC) - latest_snap.created_at.astimezone(UTC)
             if age > timedelta(hours=threshold_hours):
                 stale.append({
                     "endpoint_id": str(ep.id),
