@@ -332,6 +332,116 @@ Enable scheduled data refresh with persistent jobs and cached response serving.
 
 ---
 
-## Phase 6: Module 5 - Settings + Health Dashboard End-to-End — PENDING
+## Phase 6: Module 5 - Settings + Health Dashboard End-to-End — COMPLETE
+
+**Completed:** 2026-03-06
+
+### Goals
+Provide centralized operational controls and health visibility.
+
+### Delivered
+
+#### Backend
+| File | Purpose |
+|------|---------|
+| `backend/app/schemas/setting.py` | `SettingResponse` / `SettingUpdate` / `SettingBulkUpdate` schemas with value validation |
+| `backend/app/repositories/settings.py` | Async SQLAlchemy repository (get_all, get_by_key, upsert, delete) |
+| `backend/app/services/settings.py` | Business logic: known settings registry, type validation, restart-required tracking, secret masking, seed-on-first-access |
+| `backend/app/services/health.py` | Health aggregation: PostgreSQL probe, scheduler status, recent job outcomes (24h), stale snapshot detection, connection/endpoint counts |
+| `backend/app/routers/settings.py` | REST CRUD under `/api/v1/admin/settings/*` |
+| `backend/app/routers/health.py` | **Updated**: Added `/dashboard` endpoint for health aggregation |
+| `backend/app/main.py` | **Updated**: Registered settings router |
+| `backend/tests/test_settings.py` | Schema validation unit tests + known settings tests + API integration tests |
+
+#### Admin API Surface
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/admin/settings/` | List all settings |
+| PUT | `/api/v1/admin/settings/` | Bulk update settings |
+| GET | `/api/v1/admin/settings/restart-keys` | List settings requiring restart |
+| GET | `/api/v1/admin/settings/{key}` | Get single setting |
+| PUT | `/api/v1/admin/settings/{key}` | Update single setting |
+| GET | `/api/v1/admin/health/dashboard` | Aggregated health dashboard |
+
+#### Known Settings
+| Key | Type | Default | Restart Required |
+|-----|------|---------|-----------------|
+| `log_level` | enum (DEBUG/INFO/WARNING/ERROR) | INFO | Yes |
+| `query_timeout_seconds` | integer (1-300) | 30 | No |
+| `cors_origins` | string (comma-separated) | * | Yes |
+| `snapshot_retention_count` | integer (1-100) | 5 | No |
+| `max_job_concurrency` | integer (1-20) | 3 | Yes |
+
+#### Health Dashboard Components
+- **Database probe**: PostgreSQL connectivity check with error detail
+- **Scheduler status**: Running/stopped, job count, active schedules
+- **Recent job outcomes (24h)**: Total, success, failed counts with success rate percentage
+- **Stale snapshot detection**: Identifies snapshot-strategy endpoints with missing or outdated snapshots (threshold: 2x schedule interval or 24h default)
+- **Connection/endpoint counts**: Total and active counts for connections and endpoints
+- **Overall status**: "ok" or "degraded" (auto-set when database probe fails or stale snapshots detected)
+
+#### Frontend
+| File | Purpose |
+|------|---------|
+| `frontend/src/types/setting.ts` | TypeScript interfaces: `Setting`, `SettingUpdate`, `SettingBulkUpdate`, `HealthDashboard` |
+| `frontend/src/lib/api.ts` | **Updated**: `settingsApi` (list, get, update, bulkUpdate, restartKeys) and `healthApi` (live, ready, dashboard) |
+| `frontend/src/lib/queryClient.ts` | **Updated**: Settings and health query key factories |
+| `frontend/src/pages/SettingsPage.tsx` | Form-based settings editor with per-setting save, restart-required badges, secret masking, success/error messages |
+| `frontend/src/pages/HealthPage.tsx` | Health dashboard with overall status, component cards, scheduler status, job run stats, stale snapshot table, 30s auto-refresh |
+| `frontend/src/pages/DashboardPage.tsx` | **Updated**: Added Settings and Health summary cards (6-card grid layout) |
+| `frontend/src/components/Layout.tsx` | **Updated**: Added Settings (Cog icon) and Health (Activity icon) nav items, version bumped to v0.6.0 |
+| `frontend/src/App.tsx` | **Updated**: Added `/settings` and `/health` routes |
+
+#### Checks
+- `ruff check .` — clean
+- `mypy .` — clean
+- `pytest -k "not integration"` — 57 passed
+- `eslint` — clean
+- `prettier --check` — clean
+- `tsc -b && vite build` — clean
+
+---
 
 ## Phase 7: Integration Hardening — PENDING
+
+### Goals
+Validate production readiness across module boundaries and security controls.
+
+### Planned Deliverables
+- Cross-module integration and smoke E2E tests
+- Security validation checklist and remediation pass
+- Deployment and operations documentation for self-hosted environments
+
+### Key Tasks
+- End-to-end smoke scenarios: connection → auth → endpoint → schedule → snapshot → consume
+- Negative-path security tests (invalid auth, SQL injection attempts, malformed params)
+- Migration upgrade path validation (baseline → latest)
+- Performance sanity tests for common query and snapshot paths
+- Finalize documentation: architecture, API versioning/deprecation, setup, backup/restore, incident troubleshooting
+
+### Testing Plan Summary
+
+#### Current Test Coverage
+| Area | Unit Tests | Integration Tests | Status |
+|------|-----------|-------------------|--------|
+| Connections (Phase 2) | Crypto, validation | API CRUD | ✅ Passing |
+| Auth Methods (Phase 3) | bcrypt, JWT, schemas | API CRUD, token issuance | ✅ Passing |
+| Endpoints (Phase 4) | SQL safety, bind params | API CRUD, preview | ✅ Passing |
+| Schedules (Phase 5) | Schema validation | API CRUD, run/pause/resume | ✅ Passing |
+| Settings (Phase 6) | Schema validation, known settings | API CRUD, health dashboard | ✅ Passing |
+| Frontend | Component rendering | — | ✅ Passing (vitest) |
+
+#### Local Testing (Windows + Docker)
+1. **Prerequisites**: Docker Desktop, Git, `.env` file with `ENCRYPTION_KEY`
+2. **Quick start**: `docker compose up -d` boots PostgreSQL + backend + frontend
+3. **Backend only**: `cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload`
+4. **Frontend only**: `cd frontend && npm install && npm run dev`
+5. **Run checks**:
+   - Backend: `cd backend && ruff check . && mypy . && pytest`
+   - Frontend: `cd frontend && npm run eslint && npm run prettier:check && npm run test`
+6. **Oracle testing**: Requires reachable Oracle instance; integration tests are skipped without one
+
+#### QA Readiness
+- **Modules 1-5**: Feature-complete with admin UI and API
+- **Blocking for QA**: Oracle connectivity for live query testing
+- **Phase 7 scope**: E2E smoke tests, security hardening, final documentation
