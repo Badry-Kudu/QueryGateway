@@ -1,7 +1,8 @@
 """Dynamic data endpoint namespace — /api/v1/data/*.
 
-Phase 3: Auth enforcement infrastructure is wired here.
-Phase 4: Dynamic endpoint resolution and SQL execution will be added.
+Phase 3: Auth enforcement infrastructure.
+Phase 4: Dynamic endpoint resolution and SQL execution.
+Phase 5: Snapshot mode — serve cached results for snapshot-strategy endpoints.
 
 Every request to /api/v1/data/* is subject to per-endpoint auth verification
 and access logging.  Unauthenticated or unauthorized requests are rejected
@@ -19,7 +20,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_db
 from app.models.access_log import AccessLog
 from app.repositories.auth_method import AuthMethodRepository
+from app.repositories.connection import ConnectionRepository
+from app.repositories.endpoint import EndpointRepository
+from app.repositories.snapshot import SnapshotRepository
 from app.services.auth_method import AuthMethodService
+from app.sql.executor import SqlExecutionError, execute_query
 
 log = structlog.get_logger()
 
@@ -154,13 +159,42 @@ async def _enforce_auth(
     )
 
 
+def _apply_column_map(
+    rows: list[dict[str, object]], column_map: dict[str, object]
+) -> list[dict[str, object]]:
+    """Rename columns in result rows based on the endpoint's column_map."""
+    if not column_map:
+        return rows
+    mapped: list[dict[str, object]] = []
+    for row in rows:
+        new_row: dict[str, object] = {}
+        for key, value in row.items():
+            output_key = column_map.get(key)
+            if isinstance(output_key, str):
+                new_row[output_key] = value
+            else:
+                new_row[key] = value
+        mapped.append(new_row)
+    return mapped
+
+
+def _coerce_param(value: str, param_type: str) -> object:
+    """Coerce a query string value to the expected type."""
+    if param_type == "integer":
+        return int(value)
+    if param_type == "float":
+        return float(value)
+    if param_type == "boolean":
+        return value.lower() in ("true", "1", "yes")
+    return value
+
+
 @router.get(
     "/{full_path:path}",
-    summary="Dynamic data endpoint (Phase 4)",
+    summary="Dynamic data endpoint",
     description=(
-        "Placeholder for dynamic endpoint resolution. "
-        "Full SQL execution and result serving is implemented in Phase 4. "
-        "Auth enforcement infrastructure is active."
+        "Resolve the endpoint by path, enforce auth, execute SQL or serve "
+        "cached snapshot, and return data."
     ),
     include_in_schema=True,
 )
@@ -169,25 +203,278 @@ async def data_endpoint(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> JSONResponse:
-    """Phase 3 stub: returns 404 with diagnostic info.
-
-    Phase 4 will replace this with dynamic endpoint lookup and SQL execution.
-    Access logging is written for all requests hitting this namespace.
-    """
+    """Dynamic endpoint lookup, auth enforcement, and SQL execution or snapshot serving."""
     start = time.monotonic()
+    path = full_path.strip("/").lower()
+    principal: str | None = None
+    endpoint_id: uuid.UUID | None = None
 
-    await _write_access_log(
-        db,
-        request=request,
-        path=f"/api/v1/data/{full_path}",
-        status_code=404,
-        duration_ms=(time.monotonic() - start) * 1000,
-    )
+    try:
+        # Look up endpoint by path
+        repo = EndpointRepository(db)
+        ep = await repo.get_by_path(path)
 
-    return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND,
-        content={
-            "detail": f"No endpoint registered at /api/v1/data/{full_path}. "
-            "Endpoints are created and published via the API Creation Wizard (Phase 4)."
-        },
-    )
+        if ep is None:
+            duration_ms = (time.monotonic() - start) * 1000
+            await _write_access_log(
+                db,
+                request=request,
+                path=f"/api/v1/data/{full_path}",
+                status_code=404,
+                duration_ms=duration_ms,
+            )
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={
+                    "detail": f"No endpoint registered at /api/v1/data/{full_path}."
+                },
+            )
+
+        endpoint_id = ep.id
+
+        # Check endpoint is active
+        if not ep.is_active:
+            duration_ms = (time.monotonic() - start) * 1000
+            await _write_access_log(
+                db,
+                request=request,
+                path=f"/api/v1/data/{full_path}",
+                status_code=404,
+                duration_ms=duration_ms,
+                endpoint_id=endpoint_id,
+            )
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"detail": "Endpoint is not active."},
+            )
+
+        # Enforce auth if configured
+        if ep.auth_method_id is not None:
+            principal = await _enforce_auth(request, ep.auth_method_id, db)
+
+        # ── Snapshot mode ─────────────────────────────────────────────────
+        if ep.data_strategy.value == "snapshot":
+            snap_repo = SnapshotRepository(db)
+            snapshot = await snap_repo.get_latest_by_endpoint(ep.id)
+
+            if snapshot is None:
+                duration_ms = (time.monotonic() - start) * 1000
+                await _write_access_log(
+                    db,
+                    request=request,
+                    path=f"/api/v1/data/{full_path}",
+                    status_code=503,
+                    duration_ms=duration_ms,
+                    principal=principal,
+                    endpoint_id=endpoint_id,
+                )
+                return JSONResponse(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    content={
+                        "detail": "No snapshot available yet. "
+                        "Wait for the scheduled job to run."
+                    },
+                )
+
+            snapshot_data: list[dict[str, object]] = (
+                snapshot.data if isinstance(snapshot.data, list) else []
+            )
+            duration_ms = (time.monotonic() - start) * 1000
+
+            await _write_access_log(
+                db,
+                request=request,
+                path=f"/api/v1/data/{full_path}",
+                status_code=200,
+                duration_ms=duration_ms,
+                principal=principal,
+                endpoint_id=endpoint_id,
+            )
+
+            response_headers: dict[str, str] = {}
+            if ep.is_deprecated:
+                response_headers["Deprecation"] = "true"
+                if ep.deprecation_note:
+                    response_headers["Sunset"] = ep.deprecation_note
+
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "data": snapshot_data,
+                    "meta": {
+                        "row_count": snapshot.row_count,
+                        "endpoint": path,
+                        "version": ep.version,
+                        "data_strategy": "snapshot",
+                        "snapshot_created_at": snapshot.created_at.isoformat(),
+                    },
+                },
+                headers=response_headers,
+            )
+
+        # ── Live mode ─────────────────────────────────────────────────────
+
+        # Build query parameters from request query string
+        params: dict[str, object] = {}
+        param_schema = ep.param_schema_json or {}
+
+        for param_name, descriptor in param_schema.items():
+            if not isinstance(descriptor, dict):
+                continue
+            raw_value = request.query_params.get(param_name)
+            param_type = descriptor.get("type", "string")
+            required = descriptor.get("required", True)
+            default = descriptor.get("default")
+
+            if raw_value is not None:
+                try:
+                    params[param_name] = _coerce_param(
+                        raw_value, str(param_type)
+                    )
+                except (ValueError, TypeError) as exc:
+                    duration_ms = (time.monotonic() - start) * 1000
+                    await _write_access_log(
+                        db,
+                        request=request,
+                        path=f"/api/v1/data/{full_path}",
+                        status_code=422,
+                        duration_ms=duration_ms,
+                        principal=principal,
+                        endpoint_id=endpoint_id,
+                    )
+                    return JSONResponse(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        content={
+                            "detail": (
+                                f"Invalid value for parameter '{param_name}': {exc}"
+                            )
+                        },
+                    )
+            elif default is not None:
+                params[param_name] = default
+            elif required:
+                duration_ms = (time.monotonic() - start) * 1000
+                await _write_access_log(
+                    db,
+                    request=request,
+                    path=f"/api/v1/data/{full_path}",
+                    status_code=422,
+                    duration_ms=duration_ms,
+                    principal=principal,
+                    endpoint_id=endpoint_id,
+                )
+                return JSONResponse(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    content={
+                        "detail": f"Required parameter '{param_name}' is missing."
+                    },
+                )
+
+        # Get the connection
+        conn_repo = ConnectionRepository(db)
+        connection = await conn_repo.get_by_id(ep.connection_id)
+        if connection is None or not connection.is_active:
+            duration_ms = (time.monotonic() - start) * 1000
+            await _write_access_log(
+                db,
+                request=request,
+                path=f"/api/v1/data/{full_path}",
+                status_code=503,
+                duration_ms=duration_ms,
+                principal=principal,
+                endpoint_id=endpoint_id,
+            )
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"detail": "Data source connection is unavailable."},
+            )
+
+        # Execute SQL
+        try:
+            columns, rows, query_duration_ms = await execute_query(
+                connection=connection,
+                sql=ep.sql_text,
+                params=params,
+            )
+        except SqlExecutionError as exc:
+            duration_ms = (time.monotonic() - start) * 1000
+            await _write_access_log(
+                db,
+                request=request,
+                path=f"/api/v1/data/{full_path}",
+                status_code=500,
+                duration_ms=duration_ms,
+                principal=principal,
+                endpoint_id=endpoint_id,
+            )
+            log.error(
+                "data_endpoint_query_failed",
+                endpoint_id=str(endpoint_id),
+                path=path,
+                error=str(exc),
+            )
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={"detail": "Query execution failed."},
+            )
+
+        # Apply column mapping
+        mapped_rows = _apply_column_map(rows, ep.column_map_json or {})
+
+        duration_ms = (time.monotonic() - start) * 1000
+
+        # Write access log
+        await _write_access_log(
+            db,
+            request=request,
+            path=f"/api/v1/data/{full_path}",
+            status_code=200,
+            duration_ms=duration_ms,
+            principal=principal,
+            endpoint_id=endpoint_id,
+        )
+
+        # Build response
+        response_headers = {}
+        if ep.is_deprecated:
+            response_headers["Deprecation"] = "true"
+            if ep.deprecation_note:
+                response_headers["Sunset"] = ep.deprecation_note
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "data": mapped_rows,
+                "meta": {
+                    "row_count": len(mapped_rows),
+                    "query_duration_ms": query_duration_ms,
+                    "endpoint": path,
+                    "version": ep.version,
+                    "data_strategy": ep.data_strategy.value,
+                },
+            },
+            headers=response_headers,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        duration_ms = (time.monotonic() - start) * 1000
+        await _write_access_log(
+            db,
+            request=request,
+            path=f"/api/v1/data/{full_path}",
+            status_code=500,
+            duration_ms=duration_ms,
+            principal=principal,
+            endpoint_id=endpoint_id,
+        )
+        log.error(
+            "data_endpoint_unhandled_error",
+            path=full_path,
+            error=str(exc),
+        )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Internal server error."},
+        )

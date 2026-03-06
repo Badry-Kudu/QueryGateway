@@ -1,7 +1,8 @@
 """Health check endpoints.
 
-GET /api/v1/admin/health/live  — Liveness probe (no dependencies checked).
-GET /api/v1/admin/health/ready — Readiness probe (checks PostgreSQL connectivity).
+GET /api/v1/admin/health/live      — Liveness probe (no dependencies checked).
+GET /api/v1/admin/health/ready     — Readiness probe (checks PostgreSQL connectivity).
+GET /api/v1/admin/health/dashboard — Aggregated system health dashboard.
 
 Container orchestrators should call /live for restart decisions and /ready
 to gate traffic routing.
@@ -15,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_db
 from app.schemas.health import HealthCheck
+from app.services.health import get_health_dashboard
 
 log = structlog.get_logger()
 
@@ -56,3 +58,22 @@ async def readiness(db: AsyncSession = Depends(get_db)) -> JSONResponse:
         status_code=status.HTTP_200_OK,
         content=HealthCheck(status="ok", checks=checks).model_dump(),
     )
+
+
+@router.get(
+    "/dashboard",
+    summary="Health dashboard",
+    description=(
+        "Aggregated system health: DB connectivity, scheduler status, "
+        "recent job outcomes, stale snapshot detection, resource counts."
+    ),
+)
+async def dashboard(db: AsyncSession = Depends(get_db)) -> JSONResponse:
+    data = await get_health_dashboard(db)
+    overall = data.get("overall", "ok")
+    status_code = (
+        status.HTTP_200_OK
+        if overall == "ok"
+        else status.HTTP_200_OK  # Still 200 — "degraded" is informational
+    )
+    return JSONResponse(status_code=status_code, content=data)

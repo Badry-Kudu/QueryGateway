@@ -117,12 +117,331 @@ Provide complete connection lifecycle management for Oracle data sources.
 
 ---
 
-## Phase 3: Module 3 - Auth Configuration End-to-End — PENDING
+## Phase 3: Module 3 - Auth Configuration End-to-End — COMPLETE
 
-## Phase 4: Module 2 - API Creation Wizard End-to-End — PENDING
+**Completed:** 2026-03-05
 
-## Phase 5: Module 4 - Scheduling + Snapshot Cache End-to-End — PENDING
+### Goals
+Deliver configurable endpoint authentication using PyJWT + bcrypt.
 
-## Phase 6: Module 5 - Settings + Health Dashboard End-to-End — PENDING
+### Delivered
+
+#### Backend
+| File | Purpose |
+|------|---------|
+| `backend/app/auth/jwt_utils.py` | JWT creation/verification (PyJWT, HS256/384/512) |
+| `backend/app/auth/hashing.py` | bcrypt password hashing, API key generation, signing secret generation |
+| `backend/app/models/auth_method.py` | `AuthMethod` model with `AuthMethodType` enum (bearer/basic/api_key) |
+| `backend/app/models/access_log.py` | `AccessLog` model for per-request access audit trail |
+| `backend/app/schemas/auth_method.py` | `AuthMethodCreate` / `AuthMethodUpdate` / `AuthMethodResponse` / `TokenIssuedResponse` / `ApiKeyIssuedResponse` / `RotateResponse` |
+| `backend/app/repositories/auth_method.py` | Async SQLAlchemy repository (get, list, create, update, delete) |
+| `backend/app/services/auth_method.py` | Business logic: CRUD, token issuance, credential rotation, verification (bearer/basic/api_key) |
+| `backend/app/routers/auth_methods.py` | REST CRUD + `/issue-token` + `/rotate` under `/api/v1/admin/auth/*` |
+| `backend/app/routers/data.py` | Auth enforcement infrastructure: `_enforce_auth()` and `_write_access_log()` for Phase 4 integration |
+| `backend/tests/test_auth_methods.py` | bcrypt/JWT unit tests + schema validation + API integration tests |
+
+#### API Surface
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/admin/auth/` | List auth methods (`?active_only=true`) |
+| POST | `/api/v1/admin/auth/` | Create auth method (201) |
+| POST | `/api/v1/admin/auth/with-key` | Create API key method, returns key (201) |
+| GET | `/api/v1/admin/auth/{id}` | Get single auth method |
+| PUT | `/api/v1/admin/auth/{id}` | Update auth method |
+| DELETE | `/api/v1/admin/auth/{id}` | Delete auth method (204) |
+| POST | `/api/v1/admin/auth/{id}/issue-token` | Issue JWT for bearer method |
+| POST | `/api/v1/admin/auth/{id}/rotate` | Rotate signing secret or API key |
+
+#### Security
+- Passwords hashed with bcrypt (never returned in API responses)
+- Bearer signing secrets encrypted with Fernet before storage in `config_json`
+- API keys shown once only on creation/rotation
+- JWT tokens stateless — not stored server-side, verified via signing secret
+- Token expiry enforced via `exp` claim
+- All three auth types supported: Bearer JWT, Basic Auth, API Key
+
+#### Frontend
+| File | Purpose |
+|------|---------|
+| `frontend/src/types/auth_method.ts` | TypeScript interfaces matching API contract |
+| `frontend/src/lib/api.ts` | Axios-based `authMethodsApi` client |
+| `frontend/src/components/auth/AuthMethodForm.tsx` | Create/edit form with type-specific fields |
+| `frontend/src/pages/AuthMethodsPage.tsx` | List table + create/edit/delete/issue/rotate dialogs |
+
+#### Checks
+- `ruff check .` — clean
+- `mypy .` — clean
+- `pytest -k "not integration"` — all passed
+- `eslint` — clean
+- `prettier --check` — clean
+- `tsc -b && vite build` — clean
+
+---
+
+## Phase 4: Module 2 - API Creation Wizard End-to-End — COMPLETE
+
+**Completed:** 2026-03-05
+
+### Goals
+Deliver the core wizard that converts parameterized SQL into deployable versioned data endpoints.
+
+### Delivered
+
+#### Backend
+| File | Purpose |
+|------|---------|
+| `backend/app/schemas/endpoint.py` | `EndpointCreate` / `EndpointUpdate` / `EndpointResponse` / `SqlPreviewRequest` / `SqlPreviewResponse` / `ParamDescriptor` + SQL safety validation + bind parameter extraction |
+| `backend/app/repositories/endpoint.py` | Async SQLAlchemy repository (get_all, get_by_id, get_by_name, get_by_path, create, update, delete) |
+| `backend/app/services/endpoint.py` | Business logic: CRUD, uniqueness (name + path), connection validation, SQL preview orchestration, column map handling |
+| `backend/app/routers/endpoints.py` | REST CRUD + `/preview` under `/api/v1/admin/endpoints/*` |
+| `backend/app/sql/__init__.py` | SQL execution module |
+| `backend/app/sql/executor.py` | Oracle SQL execution engine via python-oracledb with query timeout, thread delegation, structured logging |
+| `backend/app/routers/data.py` | **Upgraded from Phase 3 stub**: Dynamic endpoint resolution, auth enforcement, parameter coercion, column mapping, access logging |
+| `backend/tests/test_endpoints.py` | SQL safety unit tests + schema validation + bind parameter extraction + API integration tests |
+
+#### Admin API Surface
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/admin/endpoints/` | List endpoints (`?active_only=true`) |
+| POST | `/api/v1/admin/endpoints/` | Create endpoint (201) |
+| GET | `/api/v1/admin/endpoints/{id}` | Get single endpoint |
+| PUT | `/api/v1/admin/endpoints/{id}` | Update endpoint |
+| DELETE | `/api/v1/admin/endpoints/{id}` | Delete endpoint (204) |
+| POST | `/api/v1/admin/endpoints/preview` | Preview SQL execution (sample results) |
+
+#### Dynamic Data API
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/data/{path}` | Execute endpoint query, enforce auth, return JSON data with metadata |
+
+#### SQL Safety
+- Named bind variables (`:param_name`) extracted and validated
+- Unsafe interpolation patterns rejected (string concat, f-strings, template literals, PL/SQL concat)
+- Parameters validated and coerced through typed `ParamDescriptor` schemas
+- All SQL executed via python-oracledb with configurable query timeout
+
+#### Data Endpoint Features
+- Dynamic path-based endpoint resolution (no service restart needed)
+- Per-endpoint auth enforcement (bearer/basic/api_key via Phase 3 infrastructure)
+- Parameter extraction from query string with type coercion (string/integer/float/boolean)
+- Required parameter validation with defaults support
+- Column rename mapping (`column_map_json`)
+- Deprecation headers (`Deprecation: true`, `Sunset`) for deprecated endpoints
+- Access logging for all requests (success, auth failure, parameter errors, query errors)
+- Response metadata: row_count, query_duration_ms, endpoint path, version, data_strategy
+
+#### Frontend
+| File | Purpose |
+|------|---------|
+| `frontend/src/types/endpoint.ts` | TypeScript interfaces matching API contract |
+| `frontend/src/lib/api.ts` | Axios-based `endpointsApi` client (CRUD + preview) |
+| `frontend/src/components/endpoints/SqlEditor.tsx` | CodeMirror 6 SQL editor with syntax highlighting and dark theme |
+| `frontend/src/components/endpoints/EndpointWizard.tsx` | Multi-step wizard: Connection → SQL → Parameters → Auth & Config → Review & Publish |
+| `frontend/src/pages/EndpointsPage.tsx` | List table + wizard + edit/delete dialogs + URL copy/open actions |
+| `frontend/src/pages/DashboardPage.tsx` | Updated with endpoints count card |
+| `frontend/src/components/Layout.tsx` | Updated with API Endpoints nav item |
+
+#### Checks
+- `ruff check .` — clean
+- `mypy .` — clean (50 files, 0 errors)
+- `pytest -k "not integration"` — 57 passed
+- `eslint` — clean
+- `prettier --check` — clean
+- `tsc -b && vite build` — clean
+
+---
+
+## Phase 5: Module 4 - Scheduling + Snapshot Cache End-to-End — COMPLETE
+
+**Completed:** 2026-03-06
+
+### Goals
+Enable scheduled data refresh with persistent jobs and cached response serving.
+
+### Delivered
+
+#### Backend
+| File | Purpose |
+|------|---------|
+| `backend/app/schemas/schedule.py` | `ScheduleCreate` / `ScheduleUpdate` / `ScheduleResponse` / `JobRunResponse` / `SnapshotResponse` / `SnapshotDetailResponse` |
+| `backend/app/repositories/schedule.py` | Async SQLAlchemy repository (get_all, get_by_id, get_by_endpoint_id, create, update, delete) |
+| `backend/app/repositories/job_run.py` | Async SQLAlchemy repository (get_all with filters, get_by_id, create, update) |
+| `backend/app/repositories/snapshot.py` | Async SQLAlchemy repository (get_latest_by_endpoint, get_by_endpoint, create, delete_old with retention) |
+| `backend/app/services/scheduler.py` | APScheduler 3.x AsyncIOScheduler integration: lifecycle (start/stop), job execution (Oracle query + snapshot persistence), job management (add/remove/pause/resume) |
+| `backend/app/services/schedule.py` | Business logic: CRUD, one-schedule-per-endpoint uniqueness, run-now, pause/resume, job run queries, snapshot queries |
+| `backend/app/routers/schedules.py` | REST CRUD + `/run` + `/pause` + `/resume` + job runs + snapshots under `/api/v1/admin/schedules/*` |
+| `backend/app/routers/data.py` | **Updated**: Snapshot mode serving — snapshot-strategy endpoints return cached JSONB with freshness metadata |
+| `backend/app/main.py` | **Updated**: APScheduler lifecycle (start on startup, stop on shutdown), schedule router registration |
+| `backend/tests/test_schedules.py` | Schema validation unit tests + API integration tests |
+
+#### Admin API Surface
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/admin/schedules/` | List schedules (`?active_only=true`) |
+| POST | `/api/v1/admin/schedules/` | Create schedule (201) |
+| GET | `/api/v1/admin/schedules/{id}` | Get single schedule |
+| PUT | `/api/v1/admin/schedules/{id}` | Update schedule |
+| DELETE | `/api/v1/admin/schedules/{id}` | Delete schedule (204) |
+| POST | `/api/v1/admin/schedules/{id}/run` | Run schedule now (202) |
+| POST | `/api/v1/admin/schedules/{id}/pause` | Pause schedule |
+| POST | `/api/v1/admin/schedules/{id}/resume` | Resume schedule |
+| GET | `/api/v1/admin/schedules/jobs/` | List job runs (`?schedule_id=&endpoint_id=&limit=`) |
+| GET | `/api/v1/admin/schedules/jobs/{id}` | Get single job run |
+| GET | `/api/v1/admin/schedules/snapshots/{endpoint_id}` | List snapshots for endpoint |
+| GET | `/api/v1/admin/schedules/snapshots/detail/{id}` | Get snapshot with data |
+
+#### Scheduling Features
+- APScheduler 3.x with AsyncIOScheduler integration
+- Cron (5-field) and interval (seconds) schedule types
+- Job coalescing (max 1 instance per job, 60s misfire grace time)
+- Scheduler lifecycle tied to FastAPI startup/shutdown
+- One schedule per endpoint uniqueness constraint
+
+#### Snapshot Cache Features
+- JSONB snapshot storage in PostgreSQL
+- Automatic snapshot retention (keeps latest 5 per endpoint)
+- Snapshot-mode data endpoints serve cached results with `snapshot_created_at` metadata
+- Fallback: 503 if no snapshot available yet
+- Column mapping applied during job execution
+
+#### Job Execution
+- Immutable job run audit records (started_at, finished_at, status, row_count, error_detail)
+- Status tracking: running → success/failed/timeout
+- Default parameter values used for scheduled queries
+- Structured logging with job_id, run_id, row_count, duration_ms, success fields
+
+#### Frontend
+| File | Purpose |
+|------|---------|
+| `frontend/src/types/schedule.ts` | TypeScript interfaces matching API contract |
+| `frontend/src/lib/api.ts` | Axios-based `schedulesApi` client (CRUD + run/pause/resume + jobs + snapshots) |
+| `frontend/src/lib/queryClient.ts` | Schedule query key factories |
+| `frontend/src/pages/SchedulesPage.tsx` | List table + create/delete dialogs + run now/pause/resume controls + job runs viewer |
+| `frontend/src/pages/DashboardPage.tsx` | Updated with schedules count card (4-column grid) |
+| `frontend/src/components/Layout.tsx` | Updated with Schedules nav item, version bumped to v0.5.0 |
+| `frontend/src/App.tsx` | Updated with /schedules route |
+
+#### Checks
+- `ruff check .` — clean
+- `mypy .` — clean (58 files, 0 errors)
+- `pytest -k "not integration"` — 69 passed
+- `eslint` — clean
+- `prettier --check` — clean
+- `tsc -b && vite build` — clean
+- `vitest` — 2 passed
+
+---
+
+## Phase 6: Module 5 - Settings + Health Dashboard End-to-End — COMPLETE
+
+**Completed:** 2026-03-06
+
+### Goals
+Provide centralized operational controls and health visibility.
+
+### Delivered
+
+#### Backend
+| File | Purpose |
+|------|---------|
+| `backend/app/schemas/setting.py` | `SettingResponse` / `SettingUpdate` / `SettingBulkUpdate` schemas with value validation |
+| `backend/app/repositories/settings.py` | Async SQLAlchemy repository (get_all, get_by_key, upsert, delete) |
+| `backend/app/services/settings.py` | Business logic: known settings registry, type validation, restart-required tracking, secret masking, seed-on-first-access |
+| `backend/app/services/health.py` | Health aggregation: PostgreSQL probe, scheduler status, recent job outcomes (24h), stale snapshot detection, connection/endpoint counts |
+| `backend/app/routers/settings.py` | REST CRUD under `/api/v1/admin/settings/*` |
+| `backend/app/routers/health.py` | **Updated**: Added `/dashboard` endpoint for health aggregation |
+| `backend/app/main.py` | **Updated**: Registered settings router |
+| `backend/tests/test_settings.py` | Schema validation unit tests + known settings tests + API integration tests |
+
+#### Admin API Surface
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/admin/settings/` | List all settings |
+| PUT | `/api/v1/admin/settings/` | Bulk update settings |
+| GET | `/api/v1/admin/settings/restart-keys` | List settings requiring restart |
+| GET | `/api/v1/admin/settings/{key}` | Get single setting |
+| PUT | `/api/v1/admin/settings/{key}` | Update single setting |
+| GET | `/api/v1/admin/health/dashboard` | Aggregated health dashboard |
+
+#### Known Settings
+| Key | Type | Default | Restart Required |
+|-----|------|---------|-----------------|
+| `log_level` | enum (DEBUG/INFO/WARNING/ERROR) | INFO | Yes |
+| `query_timeout_seconds` | integer (1-300) | 30 | No |
+| `cors_origins` | string (comma-separated) | * | Yes |
+| `snapshot_retention_count` | integer (1-100) | 5 | No |
+| `max_job_concurrency` | integer (1-20) | 3 | Yes |
+
+#### Health Dashboard Components
+- **Database probe**: PostgreSQL connectivity check with error detail
+- **Scheduler status**: Running/stopped, job count, active schedules
+- **Recent job outcomes (24h)**: Total, success, failed counts with success rate percentage
+- **Stale snapshot detection**: Identifies snapshot-strategy endpoints with missing or outdated snapshots (threshold: 2x schedule interval or 24h default)
+- **Connection/endpoint counts**: Total and active counts for connections and endpoints
+- **Overall status**: "ok" or "degraded" (auto-set when database probe fails or stale snapshots detected)
+
+#### Frontend
+| File | Purpose |
+|------|---------|
+| `frontend/src/types/setting.ts` | TypeScript interfaces: `Setting`, `SettingUpdate`, `SettingBulkUpdate`, `HealthDashboard` |
+| `frontend/src/lib/api.ts` | **Updated**: `settingsApi` (list, get, update, bulkUpdate, restartKeys) and `healthApi` (live, ready, dashboard) |
+| `frontend/src/lib/queryClient.ts` | **Updated**: Settings and health query key factories |
+| `frontend/src/pages/SettingsPage.tsx` | Form-based settings editor with per-setting save, restart-required badges, secret masking, success/error messages |
+| `frontend/src/pages/HealthPage.tsx` | Health dashboard with overall status, component cards, scheduler status, job run stats, stale snapshot table, 30s auto-refresh |
+| `frontend/src/pages/DashboardPage.tsx` | **Updated**: Added Settings and Health summary cards (6-card grid layout) |
+| `frontend/src/components/Layout.tsx` | **Updated**: Added Settings (Cog icon) and Health (Activity icon) nav items, version bumped to v0.6.0 |
+| `frontend/src/App.tsx` | **Updated**: Added `/settings` and `/health` routes |
+
+#### Checks
+- `ruff check .` — clean
+- `mypy .` — clean
+- `pytest -k "not integration"` — 57 passed
+- `eslint` — clean
+- `prettier --check` — clean
+- `tsc -b && vite build` — clean
+
+---
 
 ## Phase 7: Integration Hardening — PENDING
+
+### Goals
+Validate production readiness across module boundaries and security controls.
+
+### Planned Deliverables
+- Cross-module integration and smoke E2E tests
+- Security validation checklist and remediation pass
+- Deployment and operations documentation for self-hosted environments
+
+### Key Tasks
+- End-to-end smoke scenarios: connection → auth → endpoint → schedule → snapshot → consume
+- Negative-path security tests (invalid auth, SQL injection attempts, malformed params)
+- Migration upgrade path validation (baseline → latest)
+- Performance sanity tests for common query and snapshot paths
+- Finalize documentation: architecture, API versioning/deprecation, setup, backup/restore, incident troubleshooting
+
+### Testing Plan Summary
+
+#### Current Test Coverage
+| Area | Unit Tests | Integration Tests | Status |
+|------|-----------|-------------------|--------|
+| Connections (Phase 2) | Crypto, validation | API CRUD | ✅ Passing |
+| Auth Methods (Phase 3) | bcrypt, JWT, schemas | API CRUD, token issuance | ✅ Passing |
+| Endpoints (Phase 4) | SQL safety, bind params | API CRUD, preview | ✅ Passing |
+| Schedules (Phase 5) | Schema validation | API CRUD, run/pause/resume | ✅ Passing |
+| Settings (Phase 6) | Schema validation, known settings | API CRUD, health dashboard | ✅ Passing |
+| Frontend | Component rendering | — | ✅ Passing (vitest) |
+
+#### Local Testing (Windows + Docker)
+1. **Prerequisites**: Docker Desktop, Git, `.env` file with `ENCRYPTION_KEY`
+2. **Quick start**: `docker compose up -d` boots PostgreSQL + backend + frontend
+3. **Backend only**: `cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload`
+4. **Frontend only**: `cd frontend && npm install && npm run dev`
+5. **Run checks**:
+   - Backend: `cd backend && ruff check . && mypy . && pytest`
+   - Frontend: `cd frontend && npm run eslint && npm run prettier:check && npm run test`
+6. **Oracle testing**: Requires reachable Oracle instance; integration tests are skipped without one
+
+#### QA Readiness
+- **Modules 1-5**: Feature-complete with admin UI and API
+- **Blocking for QA**: Oracle connectivity for live query testing
+- **Phase 7 scope**: E2E smoke tests, security hardening, final documentation

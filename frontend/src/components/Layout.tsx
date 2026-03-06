@@ -1,4 +1,4 @@
-import { Database, LayoutDashboard, Shield } from "lucide-react";
+import { Activity, Clock, Cog, Database, Globe, LayoutDashboard, Shield } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { cn } from "@/lib/utils";
@@ -7,6 +7,10 @@ const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/connections", label: "Connections", icon: Database },
   { to: "/auth", label: "Auth Methods", icon: Shield },
+  { to: "/endpoints", label: "API Endpoints", icon: Globe },
+  { to: "/schedules", label: "Schedules", icon: Clock },
+  { to: "/settings", label: "Settings", icon: Cog },
+  { to: "/health", label: "Health", icon: Activity },
 ];
 
 export function Layout() {
@@ -38,7 +42,7 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="border-t px-4 py-3 text-xs text-muted-foreground">v0.3.0 · Phase 3</div>
+        <div className="border-t px-4 py-3 text-xs text-muted-foreground">v0.6.0 · Phase 6</div>
       </aside>
 
       {/* Main content */}

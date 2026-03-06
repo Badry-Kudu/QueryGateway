@@ -6,6 +6,10 @@ import { queryClient } from "@/lib/queryClient";
 import { AuthMethodsPage } from "@/pages/AuthMethodsPage";
 import { ConnectionsPage } from "@/pages/ConnectionsPage";
 import { DashboardPage } from "@/pages/DashboardPage";
+import { EndpointsPage } from "@/pages/EndpointsPage";
+import { HealthPage } from "@/pages/HealthPage";
+import { SchedulesPage } from "@/pages/SchedulesPage";
+import { SettingsPage } from "@/pages/SettingsPage";
 
 function App() {
   return (
@@ -16,7 +20,10 @@ function App() {
             <Route index element={<DashboardPage />} />
             <Route path="connections" element={<ConnectionsPage />} />
             <Route path="auth" element={<AuthMethodsPage />} />
-            {/* Future phases */}
+            <Route path="endpoints" element={<EndpointsPage />} />
+            <Route path="schedules" element={<SchedulesPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="health" element={<HealthPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

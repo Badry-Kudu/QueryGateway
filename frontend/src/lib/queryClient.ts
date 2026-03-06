@@ -21,4 +21,25 @@ export const queryKeys = {
     list: (activeOnly: boolean) => ["authMethods", "list", activeOnly] as const,
     detail: (id: string) => ["authMethods", id] as const,
   },
+  endpoints: {
+    all: ["endpoints"] as const,
+    list: (activeOnly: boolean) => ["endpoints", "list", activeOnly] as const,
+    detail: (id: string) => ["endpoints", id] as const,
+  },
+  schedules: {
+    all: ["schedules"] as const,
+    list: (activeOnly: boolean) => ["schedules", "list", activeOnly] as const,
+    detail: (id: string) => ["schedules", id] as const,
+    jobRuns: (scheduleId?: string) => ["schedules", "jobRuns", scheduleId] as const,
+    snapshots: (endpointId: string) => ["schedules", "snapshots", endpointId] as const,
+  },
+  settings: {
+    all: ["settings"] as const,
+    list: () => ["settings", "list"] as const,
+    detail: (key: string) => ["settings", key] as const,
+    restartKeys: () => ["settings", "restartKeys"] as const,
+  },
+  health: {
+    dashboard: () => ["health", "dashboard"] as const,
+  },
 };
