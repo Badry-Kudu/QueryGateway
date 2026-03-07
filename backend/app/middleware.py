@@ -8,30 +8,19 @@ RequestLoggingMiddleware:
   status, duration_ms, and the mandatory logging fields.
 - Propagates X-Request-ID in the response header for client correlation.
 
-Implementation note
--------------------
-This middleware is implemented as a **pure ASGI middleware** (not a
-``BaseHTTPMiddleware`` subclass) to avoid the asyncio task-switching that
-``BaseHTTPMiddleware`` introduces via ``call_next``.
-
-``BaseHTTPMiddleware`` wraps the downstream app call in a new asyncio ``Task``.
-asyncpg connections (used by SQLAlchemy's async engine) are bound to the task
-that created them and cannot be used from a different task — doing so raises::
-
-    RuntimeError: Task <Task pending …> got Future <Future pending …>
-    attached to a different loop
-
-By calling ``await self.app(scope, receive, send_wrapper)`` directly in the
-same coroutine, no new task is spawned and asyncpg works correctly.
+Implemented as a pure ASGI middleware (not BaseHTTPMiddleware) so that
+``await self.app(scope, receive, send_wrapper)`` runs in the *same*
+coroutine/task as the caller.  BaseHTTPMiddleware wraps call_next in a
+new asyncio Task, which breaks asyncpg connections that are task-bound.
 """
 
 import time
 import uuid
+from typing import Any
 
 import structlog
-from starlette.datastructures import MutableHeaders
 from starlette.requests import Request
-from starlette.types import ASGIApp, Message, Receive, Scope, Send
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 log = structlog.get_logger()
 
@@ -68,21 +57,18 @@ class RequestLoggingMiddleware:
             user="anonymous",  # Updated by auth middleware in later phases.
         )
 
-        # Expose request_id via request.state so route handlers can read it.
-        # ``scope`` is shared across the entire request lifecycle — any Request
-        # object constructed from the same scope sees the same ``scope["state"]``.
-        req = Request(scope, receive)
-        req.state.request_id = request_id
+        status_code: int = 0
 
-        status_code: int = 500
-
-        async def send_wrapper(message: Message) -> None:
+        async def send_wrapper(message: Any) -> None:
             nonlocal status_code
             if message["type"] == "http.response.start":
                 status_code = message["status"]
-                # Append X-Request-ID to the outgoing response headers.
-                headers = MutableHeaders(scope=message)
-                headers.append("X-Request-ID", request_id)
+                # Inject X-Request-ID into the response headers.
+                headers = list(message.get("headers", []))
+                headers.append(
+                    (b"x-request-id", request_id.encode())
+                )
+                message = {**message, "headers": headers}
             await send(message)
 
         start = time.perf_counter()
