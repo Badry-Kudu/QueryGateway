@@ -26,25 +26,34 @@ log = structlog.get_logger()
 
 
 class RequestLoggingMiddleware:
+    """Pure ASGI request-logging middleware with X-Request-ID propagation."""
+
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] not in ("http", "websocket"):
+        if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
-        request = Request(scope)
-        request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
-        # Store on request state so downstream handlers can read it.
-        request.state.request_id = request_id
+        # Extract or generate the correlation ID from the incoming request.
+        request_id: str | None = None
+        for header_name, header_value in scope.get("headers", []):
+            if header_name.lower() == b"x-request-id":
+                request_id = header_value.decode(errors="replace")
+                break
+        if not request_id:
+            request_id = str(uuid.uuid4())
+
+        path: str = scope.get("path", "")
+        method: str = scope.get("method", "")
 
         # Establish per-request log context visible to all downstream loggers.
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(
             request_id=request_id,
-            endpoint=request.url.path,
-            method=request.method,
+            endpoint=path,
+            method=method,
             user="anonymous",  # Updated by auth middleware in later phases.
         )
 

@@ -134,8 +134,18 @@ async def execute_scheduled_job(schedule_id: str, endpoint_id: str) -> None:
             )
             await snap_repo.create(snapshot)
 
-            # Clean up old snapshots according to configured retention
-            await snap_repo.delete_old(eid, keep=settings.snapshot_retention_count)
+            # Clean up old snapshots according to configured retention.
+            # snapshot_retention_count is a runtime DB setting (default: 5).
+            from app.repositories.settings import SettingsRepository  # noqa: PLC0415
+
+            settings_repo = SettingsRepository(db)
+            retention_setting = await settings_repo.get_by_key(
+                "snapshot_retention_count"
+            )
+            retention_count = (
+                int(retention_setting.value) if retention_setting else 5
+            )
+            await snap_repo.delete_old(eid, keep=retention_count)
 
             # Mark job success
             finished_at = datetime.now(UTC)

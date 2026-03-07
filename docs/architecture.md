@@ -95,7 +95,10 @@ DB2API-Exposure/
 ├── docs/
 │   ├── architecture.md      # This file
 │   ├── conventions.md       # Coding standards
-│   └── contributing.md      # Onboarding guide
+│   ├── contributing.md      # Onboarding guide
+│   ├── deployment.md        # Deployment runbook (Phase 7)
+│   ├── operations.md        # Backup/restore, monitoring, troubleshooting (Phase 7)
+│   └── security_checklist.md # Security validation checklist (Phase 7)
 ├── .github/
 │   ├── workflows/
 │   │   ├── backend.yml      # Backend CI
