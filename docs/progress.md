@@ -402,26 +402,80 @@ Provide centralized operational controls and health visibility.
 
 ---
 
-## Phase 7: Integration Hardening — PENDING
+## Phase 7: Integration Hardening — COMPLETE
+
+**Completed:** 2026-03-07
 
 ### Goals
 Validate production readiness across module boundaries and security controls.
 
-### Planned Deliverables
-- Cross-module integration and smoke E2E tests
-- Security validation checklist and remediation pass
-- Deployment and operations documentation for self-hosted environments
+### Delivered
 
-### Key Tasks
-- End-to-end smoke scenarios: connection → auth → endpoint → schedule → snapshot → consume
-- Negative-path security tests (invalid auth, SQL injection attempts, malformed params)
-- Migration upgrade path validation (baseline → latest)
-- Performance sanity tests for common query and snapshot paths
-- Finalize documentation: architecture, API versioning/deprecation, setup, backup/restore, incident troubleshooting
+#### End-to-End Smoke Test Suite
+| File | Purpose |
+|------|---------|
+| `backend/tests/test_e2e_smoke.py` | Cross-module lifecycle tests: connection → auth → endpoint → schedule → snapshot → data consumption |
 
-### Testing Plan Summary
+**Test classes:**
+- `TestE2ELifecycleSmoke` — Full lifecycle: create connection, configure auth, publish endpoint, verify auth enforcement on data API, deactivate/reactivate, snapshot mode with 503 fallback, schedule creation
+- `TestE2EAuthTypes` — All three auth types (bearer, basic, api_key) enforced on data endpoints; no-auth endpoint accessibility
+- `TestE2EHealthDashboard` — Liveness, readiness, and dashboard field validation
+- `TestE2ESettings` — Settings CRUD, known settings, restart-required keys
+- `TestE2EConnectionLifecycle` — Full CRUD lifecycle for connections
 
-#### Current Test Coverage
+#### Security Validation Test Suite
+| File | Purpose |
+|------|---------|
+| `backend/tests/test_security.py` | Negative-path security tests covering SQL injection, auth bypass, credential leakage, path traversal, malformed inputs |
+
+**Test classes:**
+- `TestSqlInjectionPrevention` — 8 unsafe SQL patterns rejected, 5 safe patterns accepted, schema-level blocking
+- `TestAuthSecurity` — Missing auth headers, malformed bearer tokens, expired JWTs, malformed basic credentials, empty API keys, token rotation invalidation
+- `TestCredentialLeakage` — Oracle passwords, signing secrets, password hashes, and config_json never appear in API responses
+- `TestMalformedRequests` — Invalid UUIDs, missing required fields, empty bodies, invalid enum values, nonexistent foreign keys
+- `TestPathValidation` — Path traversal (`../`), XSS, special characters, SQL injection in paths blocked; valid paths accepted
+- `TestDataEndpointParams` — Missing required parameters (422), invalid parameter types (422), nonexistent data paths (404)
+
+#### Migration Upgrade Path Validation
+| File | Purpose |
+|------|---------|
+| `backend/tests/test_migration.py` | Migration file structure, chain integrity, model-migration alignment, Alembic config validation |
+
+**Test classes:**
+- `TestMigrationFileStructure` — Migration directory exists, initial migration structure, upgrade/downgrade functions, enum types, table coverage, no duplicate revisions
+- `TestModelMigrationAlignment` — All 8 SQLAlchemy model tables present in migration scripts
+- `TestAlembicConfig` — alembic.ini and env.py exist and reference Base metadata
+- `TestSchemaCreation` — Tables created from models; CRUD operations work on fresh schema
+
+#### Performance Sanity Tests
+| File | Purpose |
+|------|---------|
+| `backend/tests/test_performance.py` | Response time sanity checks for admin and data APIs |
+
+**Test classes:**
+- `TestAdminApiLatency` — Connection list/create, endpoint create, health dashboard, settings list all respond within 2-3 seconds
+- `TestDataApiLatency` — Data 404, auth rejection, snapshot 503 all respond within 1 second
+- `TestBulkOperationPerformance` — Creating 20 connections in under 10 seconds; listing with many rows under 2 seconds
+
+#### Security Checklist
+| File | Purpose |
+|------|---------|
+| `docs/security_checklist.md` | 50-item security validation checklist covering auth, credential storage, SQL injection, input validation, data exposure, transport, scheduler, deployment |
+
+**Summary:** 44/50 verified through code and automated tests; 6 deployment-environment-specific items marked as action required.
+
+#### Deployment & Operations Documentation
+| File | Purpose |
+|------|---------|
+| `docs/deployment.md` | Step-by-step deployment runbook: Docker Compose, bare metal, Kubernetes; environment variables, migrations, health probes, post-deployment verification |
+| `docs/operations.md` | Backup/restore procedures, monitoring guide, incident troubleshooting (service start failures, DB issues, Oracle errors, scheduler problems, auth issues), upgrade/rollback procedures, performance tuning |
+
+#### Code Hardening
+- Fixed pre-existing `ruff` lint error in `app/sql/executor.py` (UP038: `isinstance` tuple to union type)
+- Fixed pre-existing `mypy` error in `app/services/scheduler.py` (`snapshot_retention_count` attribute — now reads from runtime DB settings instead of static config)
+
+### Test Summary
+
 | Area | Unit Tests | Integration Tests | Status |
 |------|-----------|-------------------|--------|
 | Connections (Phase 2) | Crypto, validation | API CRUD | ✅ Passing |
@@ -429,9 +483,24 @@ Validate production readiness across module boundaries and security controls.
 | Endpoints (Phase 4) | SQL safety, bind params | API CRUD, preview | ✅ Passing |
 | Schedules (Phase 5) | Schema validation | API CRUD, run/pause/resume | ✅ Passing |
 | Settings (Phase 6) | Schema validation, known settings | API CRUD, health dashboard | ✅ Passing |
+| **E2E Smoke (Phase 7)** | — | **Full lifecycle, auth types, health, settings** | ✅ Passing |
+| **Security (Phase 7)** | **SQL injection, path validation** | **Auth bypass, credential leak, malformed input** | ✅ Passing |
+| **Migration (Phase 7)** | **File structure, model alignment** | **Schema creation, CRUD on fresh DB** | ✅ Passing |
+| **Performance (Phase 7)** | — | **Latency budgets, bulk ops** | ✅ Passing |
 | Frontend | Component rendering | — | ✅ Passing (vitest) |
 
-#### Local Testing (Windows + Docker)
+**Total: 113 non-integration tests passing** (unit + Phase 7 new tests)
+
+#### Checks
+- `ruff check .` — clean (0 errors)
+- `mypy .` — clean (0 errors, 68 files checked)
+- `pytest -k "not integration"` — 113 passed
+- `eslint` — clean
+- `prettier --check` — clean
+- `vitest` — 2 passed
+- `tsc -b && vite build` — clean
+
+#### Local Testing
 1. **Prerequisites**: Docker Desktop, Git, `.env` file with `ENCRYPTION_KEY`
 2. **Quick start**: `docker compose up -d` boots PostgreSQL + backend + frontend
 3. **Backend only**: `cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload`
@@ -443,5 +512,6 @@ Validate production readiness across module boundaries and security controls.
 
 #### QA Readiness
 - **Modules 1-5**: Feature-complete with admin UI and API
+- **Phase 7**: Integration hardening complete — E2E smoke tests, security validation, performance sanity, deployment documentation
 - **Blocking for QA**: Oracle connectivity for live query testing
-- **Phase 7 scope**: E2E smoke tests, security hardening, final documentation
+- **Production readiness**: Deployment runbook, operations guide, and security checklist finalized
