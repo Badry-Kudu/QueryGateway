@@ -289,4 +289,4 @@ async def test_data_stub_returns_404(async_client: object) -> None:
     client: AsyncClient = async_client  # type: ignore[assignment]
     r = await client.get("/api/v1/data/any/path")
     assert r.status_code == 404
-    assert "Phase 4" in r.json()["detail"]
+    assert "No endpoint registered" in r.json()["detail"]
