@@ -11,7 +11,7 @@ import re
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.models.endpoint import DataStrategy
 
@@ -62,6 +62,17 @@ class ParamDescriptor(BaseModel):
     required: bool = True
     default: str | int | float | bool | None = None
     description: str | None = None
+    max_length: int | None = Field(
+        None,
+        ge=1,
+        description="Maximum allowed length for string parameters.",
+    )
+
+    @model_validator(mode="after")
+    def optional_must_have_default(self) -> "ParamDescriptor":
+        if not self.required and self.default is None:
+            raise ValueError("Optional parameters must declare a default value.")
+        return self
 
 
 class EndpointCreate(BaseModel):
@@ -109,6 +120,22 @@ class EndpointCreate(BaseModel):
             raise ValueError("; ".join(errors))
         return v
 
+    @model_validator(mode="after")
+    def bind_params_match_schema(self) -> "EndpointCreate":
+        sql_params = set(extract_bind_params(self.sql_text))
+        schema_params = set(self.param_schema.keys())
+        undeclared = sql_params - schema_params
+        unused = schema_params - sql_params
+        if undeclared:
+            raise ValueError(
+                f"SQL references params not declared in schema: {sorted(undeclared)}"
+            )
+        if unused:
+            raise ValueError(
+                f"Schema declares params not referenced in SQL: {sorted(unused)}"
+            )
+        return self
+
 
 class EndpointUpdate(BaseModel):
     """Payload for PUT /api/v1/admin/endpoints/{id}.
@@ -150,6 +177,24 @@ class EndpointUpdate(BaseModel):
         if errors:
             raise ValueError("; ".join(errors))
         return v
+
+    @model_validator(mode="after")
+    def bind_params_match_schema(self) -> "EndpointUpdate":
+        # Only validate when both sql_text and param_schema are supplied together.
+        if self.sql_text is not None and self.param_schema is not None:
+            sql_params = set(extract_bind_params(self.sql_text))
+            schema_params = set(self.param_schema.keys())
+            undeclared = sql_params - schema_params
+            unused = schema_params - sql_params
+            if undeclared:
+                raise ValueError(
+                    f"SQL references params not declared in schema: {sorted(undeclared)}"
+                )
+            if unused:
+                raise ValueError(
+                    f"Schema declares params not referenced in SQL: {sorted(unused)}"
+                )
+        return self
 
 
 class EndpointResponse(BaseModel):

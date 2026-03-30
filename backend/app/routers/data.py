@@ -178,14 +178,24 @@ def _apply_column_map(
     return mapped
 
 
-def _coerce_param(value: str, param_type: str) -> object:
+def _coerce_param(value: str, param_type: str, max_length: int | None = None) -> object:
     """Coerce a query string value to the expected type."""
     if param_type == "integer":
         return int(value)
     if param_type == "float":
         return float(value)
     if param_type == "boolean":
-        return value.lower() in ("true", "1", "yes")
+        if value.lower() in ("true", "1", "yes"):
+            return True
+        if value.lower() in ("false", "0", "no"):
+            return False
+        raise ValueError(f"expected true/false/1/0/yes/no, got '{value}'")
+    if param_type == "date":
+        from datetime import date  # noqa: PLC0415
+        return date.fromisoformat(value)  # requires YYYY-MM-DD
+    # string (default)
+    if max_length is not None and len(value) > max_length:
+        raise ValueError(f"exceeds maximum length of {max_length}")
     return value
 
 
@@ -329,7 +339,9 @@ async def data_endpoint(
             if raw_value is not None:
                 try:
                     params[param_name] = _coerce_param(
-                        raw_value, str(param_type)
+                        raw_value,
+                        str(param_type),
+                        int(descriptor["max_length"]) if descriptor.get("max_length") is not None else None,
                     )
                 except (ValueError, TypeError) as exc:
                     duration_ms = (time.monotonic() - start) * 1000
