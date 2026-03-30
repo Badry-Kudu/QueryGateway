@@ -1,6 +1,7 @@
-# DB2API-Exposure
+# QueryGateway
 
-A self-hosted platform to expose Oracle SQL queries as secure, dynamic REST endpoints with optional scheduled snapshot caching.
+> self-hosted tool that turns your database queries into secure API endpoints, with built-in authentication, caching, and scheduling.
+
 
 ## Platform Support
 
