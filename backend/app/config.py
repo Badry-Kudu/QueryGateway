@@ -1,6 +1,5 @@
 """Application configuration via Pydantic Settings v2."""
 
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,8 +17,13 @@ class Settings(BaseSettings):
     # Database (PostgreSQL)
     database_url: str = "postgresql+asyncpg://db2api:db2api@localhost:5432/db2api"
 
-    # CORS
-    cors_origins: list[str] = ["http://localhost:5173"]
+    # CORS — comma-separated string in .env, e.g.: CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+    # Stored as str to avoid pydantic-settings JSON pre-parsing a plain comma-separated value.
+    cors_origins: str = "http://localhost:5173"
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     # JWT
     jwt_secret_key: str = "changeme-use-a-real-secret-in-production"
@@ -33,16 +37,13 @@ class Settings(BaseSettings):
     query_timeout_seconds: int = 30
 
     # Credential encryption — Fernet key (base64-encoded 32-byte key).
-    # To generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key())"
+    # To generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     # MUST be provided via environment; no default is set to avoid shipping a known key.
     encryption_key: str
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def split_cors_origins(cls, v: str | list[str]) -> list[str]:
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
-        return v
+    # Oracle Instant Client path — required only when using thick mode connections.
+    # Example: C:\oracle\instantclient_23_0 (Windows) or /opt/oracle/instantclient_23_0 (Linux)
+    oracle_client_lib_dir: str = ""
 
 
 settings = Settings()

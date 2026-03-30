@@ -40,10 +40,14 @@ def _execute_sync(
     params: dict[str, object],
     max_rows: int,
     query_timeout: int,
+    thick: bool = False,
+    lib_dir: str = "",
 ) -> tuple[list[str], list[dict[str, object]]]:
     """Blocking Oracle execution — runs in a thread."""
     import oracledb  # noqa: PLC0415
 
+    if thick:
+        oracledb.init_oracle_client(lib_dir=lib_dir or None)
     conn = oracledb.connect(user=username, password=password, dsn=dsn)
     try:
         conn.call_timeout = query_timeout * 1000  # milliseconds
@@ -91,6 +95,7 @@ async def execute_query(
     start = time.monotonic()
 
     try:
+        from app.config import settings  # noqa: PLC0415
         columns, rows = await anyio.to_thread.run_sync(
             partial(
                 _execute_sync,
@@ -101,6 +106,8 @@ async def execute_query(
                 params,
                 max_rows,
                 connection.query_timeout,
+                connection.mode == "thick",
+                settings.oracle_client_lib_dir,
             )
         )
         duration_ms = (time.monotonic() - start) * 1000

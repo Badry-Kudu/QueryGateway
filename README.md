@@ -8,6 +8,8 @@ A self-hosted platform to expose Oracle SQL queries as secure, dynamic REST endp
 - Deployment: Ubuntu/Linux (recommended)
 - Docker workflow: supported on both Windows (Docker Desktop) and Ubuntu/Linux
 
+> **Python version:** Python 3.12 or 3.13 is required. Python 3.14 is not yet supported — `asyncpg` does not have stable wheels for CPython 3.14. If you have Python 3.14 installed, install Python 3.12 or 3.13 and create the virtual environment with the correct interpreter: `py -3.12 -m venv .venv` (Windows) or `python3.12 -m venv .venv` (Linux).
+
 ## Quick Start
 
 ```sh
@@ -18,7 +20,7 @@ make setup
 make check
 
 # Start with Docker
-cp .env.example .env   # Edit JWT_SECRET_KEY
+cp .env.example .env   # Set JWT_SECRET_KEY and ENCRYPTION_KEY (see deployment.md for generation commands)
 make docker-up
 ```
 
@@ -27,17 +29,32 @@ make docker-up
 
 ## Local Run (Without Docker)
 
+> **Python version:** Use Python 3.12 or 3.13. Python 3.14 is not yet supported (`asyncpg` has no wheels for CPython 3.14).
+>
+> **Note (Windows):** `psycopg2-binary` may fail to build from source if PostgreSQL dev tools are not installed. The `requirements.txt` uses a relaxed pin (`>=2.9.9`) so pip selects a pre-built wheel automatically. Always run `pip install --upgrade pip` first.
+
 ### Windows (PowerShell)
 
 ```powershell
-# Backend
+# Step 1 — Start PostgreSQL (skip if already running)
+docker run -d --name db2api-pg `
+  -e POSTGRES_USER=db2api -e POSTGRES_PASSWORD=db2api -e POSTGRES_DB=db2api `
+  -p 5432:5432 postgres:16
+# Wait ~5 seconds for PostgreSQL to initialize before continuing
+
+# Step 2 — Backend
 cd backend
-python -m venv .venv
+py -3.12 -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install --upgrade pip
 pip install -r requirements.txt
 Copy-Item .env.example .env
-# edit .env as needed, then run:
+# edit .env — set ENCRYPTION_KEY and JWT_SECRET_KEY before continuing
+
+# Step 3 — Run database migrations
+alembic upgrade head
+
+# Step 4 — Start the backend
 uvicorn app.main:app --reload
 ```
 
@@ -51,14 +68,25 @@ npm run dev
 ### Ubuntu/Linux (bash)
 
 ```bash
-# Backend
+# Step 1 — Start PostgreSQL (skip if already running)
+docker run -d --name db2api-pg \
+  -e POSTGRES_USER=db2api -e POSTGRES_PASSWORD=db2api -e POSTGRES_DB=db2api \
+  -p 5432:5432 postgres:16
+# Wait ~5 seconds for PostgreSQL to initialize before continuing
+
+# Step 2 — Backend
 cd backend
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 cp .env.example .env
-# edit .env as needed, then run:
+# edit .env — set ENCRYPTION_KEY and JWT_SECRET_KEY before continuing
+
+# Step 3 — Run database migrations
+alembic upgrade head
+
+# Step 4 — Start the backend
 uvicorn app.main:app --reload
 ```
 
@@ -71,9 +99,11 @@ npm run dev
 
 ### Local URLs
 
-- Backend API: `http://localhost:8000`
-- API docs: `http://localhost:8000/api/docs`
-- Frontend dev server: `http://localhost:5173`
+- API docs (Swagger): `http://localhost:8000/api/docs`
+- Health check: `http://localhost:8000/api/v1/admin/health/live`
+- Frontend SPA: `http://localhost:5173` (start frontend dev server first — see above)
+
+> **Note:** `http://localhost:8000/` returns 404 — the backend serves no root route. All API routes are under `/api/v1/`.
 
 ## Development
 

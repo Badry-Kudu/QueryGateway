@@ -193,10 +193,12 @@ class ConnectionService:
         else:
             dsn = f"{obj.host}:{obj.port}/{obj.sid}"
 
-        def _probe(username: str, pwd: str, dsn: str) -> str | None:
+        def _probe(username: str, pwd: str, dsn: str, thick: bool, lib_dir: str) -> str | None:
             """Blocking Oracle probe — runs in a thread so the event loop is free."""
             import oracledb  # noqa: PLC0415
 
+            if thick:
+                oracledb.init_oracle_client(lib_dir=lib_dir or None)
             conn = oracledb.connect(user=username, password=pwd, dsn=dsn)
             try:
                 cursor = conn.cursor()
@@ -208,8 +210,9 @@ class ConnectionService:
 
         start = time.monotonic()
         try:
+            from app.config import settings  # noqa: PLC0415
             oracle_version = await anyio.to_thread.run_sync(
-                partial(_probe, obj.username, password, dsn)
+                partial(_probe, obj.username, password, dsn, obj.mode == "thick", settings.oracle_client_lib_dir)
             )
             duration_ms = (time.monotonic() - start) * 1000
             log.info(

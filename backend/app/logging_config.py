@@ -21,10 +21,9 @@ def configure_logging(log_level: str = "INFO") -> None:
     Processors (in order):
     1. Merge any context vars set by middleware (request_id, user, etc.)
     2. Add stdlib log level name.
-    3. Add logger name.
-    4. Add ISO-8601 timestamp.
-    5. Render exception info (if any).
-    6. Render to JSON.
+    3. Add ISO-8601 timestamp.
+    4. Render exception info (if any).
+    5. Render to JSON.
     """
     level = getattr(logging, log_level.upper(), logging.INFO)
 
@@ -37,7 +36,6 @@ def configure_logging(log_level: str = "INFO") -> None:
         processors=[
             structlog.contextvars.merge_contextvars,
             structlog.stdlib.add_log_level,
-            structlog.stdlib.add_logger_name,
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.ExceptionRenderer(),

@@ -6,4 +6,4 @@
 #
 # Not included in the base image to avoid build failures in environments where
 # the package is unavailable; python-oracledb is imported lazily at runtime.
-python-oracledb==2.5.0
+oracledb>=2.4.0
