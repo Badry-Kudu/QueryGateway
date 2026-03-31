@@ -1,6 +1,6 @@
 # Deployment Runbook
 
-This document provides step-by-step deployment instructions for DB2API-Exposure in self-hosted environments.
+This document provides step-by-step deployment instructions for QueryGateway in self-hosted environments.
 
 ## Prerequisites
 

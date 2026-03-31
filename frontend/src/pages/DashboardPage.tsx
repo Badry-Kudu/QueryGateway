@@ -40,7 +40,7 @@ export function DashboardPage() {
   return (
     <div className="mx-auto max-w-4xl p-6">
       <h1 className="mb-1 text-2xl font-bold">Dashboard</h1>
-      <p className="mb-6 text-sm text-muted-foreground">System overview for DB2API-Exposure.</p>
+      <p className="mb-6 text-sm text-muted-foreground">System overview for QueryGateway.</p>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Connections card */}

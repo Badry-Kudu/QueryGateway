@@ -1,4 +1,4 @@
-"""DB2API-Exposure FastAPI application factory.
+"""QueryGateway FastAPI application factory.
 
 Responsibilities of this module:
 - Create the FastAPI instance with metadata and lifespan.
@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(
-    title="DB2API-Exposure",
+    title="QueryGateway",
     description="Secure, dynamic REST endpoints from Oracle SQL queries.",
     version="0.1.0",
     docs_url="/api/docs",

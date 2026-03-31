@@ -1,6 +1,6 @@
-# DB2API-Exposure Implementation Plan
+# QueryGateway Implementation Plan
 
-DB2API-Exposure will be delivered as a self-hosted platform that lets teams expose Oracle query results as secure REST endpoints through a guided wizard, while preserving security-by-default, reproducible infrastructure, and operational reliability from day one. This plan translates the approved architecture and recommendations into phased, testable implementation work using Python 3.12+, FastAPI, PostgreSQL, SQLAlchemy 2.0 + Alembic, APScheduler 3.x, Pydantic Settings, API versioning, Vite + React SPA, shadcn/ui + Tailwind, and Dockerized CI/CD.
+QueryGateway will be delivered as a self-hosted platform that lets teams expose Oracle query results as secure REST endpoints through a guided wizard, while preserving security-by-default, reproducible infrastructure, and operational reliability from day one. This plan translates the approved architecture and recommendations into phased, testable implementation work using Python 3.12+, FastAPI, PostgreSQL, SQLAlchemy 2.0 + Alembic, APScheduler 3.x, Pydantic Settings, API versioning, Vite + React SPA, shadcn/ui + Tailwind, and Dockerized CI/CD.
 
 ## Scope and Non-Goals
 

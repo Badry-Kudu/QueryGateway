@@ -2,7 +2,7 @@
 
 ## Overview
 
-Extend DB2API-Exposure from Oracle-only to a multi-database platform. Users will be able to register connections to different database engines, test them, and expose SQL queries as REST endpoints — exactly as today, but engine-agnostic.
+Extend QueryGateway from Oracle-only to a multi-database platform. Users will be able to register connections to different database engines, test them, and expose SQL queries as REST endpoints — exactly as today, but engine-agnostic.
 
 ---
 

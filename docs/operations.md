@@ -1,6 +1,6 @@
 # Operations Guide
 
-Backup, restore, monitoring, and incident troubleshooting procedures for DB2API-Exposure.
+Backup, restore, monitoring, and incident troubleshooting procedures for QueryGateway.
 
 ## Backup Procedures
 

@@ -1,11 +1,11 @@
-# DB2API-Exposure: Project Analysis & Manifesto
+# QueryGateway: Project Analysis & Manifesto
 
 ## 1. Executive Summary
 
-**Project Name:** DB2API-Exposure
+**Project Name:** QueryGateway
 **Goal:** Provide a self-hosted platform that enables users to expose local database data through dynamically generated RESTful API endpoints, using a wizard-driven UI for configuration.
 
-**Core Value Proposition:** Organizations with Oracle (and later other) databases need a lightweight, self-hosted tool to expose specific query results as secure REST APIs — without requiring developers to hand-code each endpoint. DB2API-Exposure bridges the gap between database-stored data and modern API consumers.
+**Core Value Proposition:** Organizations with Oracle (and later other) databases need a lightweight, self-hosted tool to expose specific query results as secure REST APIs — without requiring developers to hand-code each endpoint. QueryGateway bridges the gap between database-stored data and modern API consumers.
 
 ---
 
@@ -267,7 +267,7 @@ Before building from scratch, the following existing open-source and free tools 
 
 ### 3.1 Vision
 
-DB2API-Exposure is a self-hosted, open-source platform that democratizes database data access by enabling non-developers to create secure REST API endpoints from SQL queries through an intuitive wizard interface — without writing application code.
+QueryGateway is a self-hosted, open-source platform that democratizes database data access by enabling non-developers to create secure REST API endpoints from SQL queries through an intuitive wizard interface — without writing application code.
 
 ### 3.2 Core Principles
 
@@ -691,7 +691,7 @@ No changes recommended.
 1. **Monorepo Structure:** Organize the project as a monorepo with clear separation:
 
    ```
-   DB2API-Exposure/
+   QueryGateway/
    ├── backend/          # FastAPI application
    ├── frontend/         # Next.js application
    ├── docker/           # Docker configurations

@@ -1,7 +1,7 @@
 # Claude Code Persistent Context
 
 ## Project Identity
-DB2API-Exposure is a monorepo for creating secure, dynamic REST endpoints from Oracle SQL queries with optional scheduled snapshot caching.
+QueryGateway is a monorepo for creating secure, dynamic REST endpoints from Oracle SQL queries with optional scheduled snapshot caching.
 
 ## Stack Snapshot
 - Python 3.12+, FastAPI, Pydantic Settings v2.

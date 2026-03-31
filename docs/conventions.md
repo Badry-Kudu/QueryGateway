@@ -79,3 +79,28 @@
 - Every PR with a behavior change must include or update tests.
 - Test fixtures must not contain secrets.
 - CI checks: `ruff`, `mypy`, `pytest` (backend); `eslint`, `prettier --check`, `vitest` (frontend); `docker compose build` (Docker).
+
+## Naming Convention Policy
+
+### Project Rename: DB2API-Exposure → QueryGateway
+
+The project was formally renamed from **DB2API-Exposure** to **QueryGateway** in March 2026 to reflect its broader mission beyond Oracle databases. However, the following identifiers **intentionally remain unchanged** for operational stability:
+
+#### Infrastructure Credentials (db2api)
+- PostgreSQL username/password defaults
+- Database names and connection strings
+- These are internal configuration defaults, not public-facing identifiers
+- Changing them would require migration scripts and environment variable updates across dev, test, and production
+- **Action:** Update only if performing a full infrastructure refresh; document changes in deployment runbooks
+
+#### API Key Prefix (db2api_)
+- Generated API keys start with the `db2api_` prefix
+- Part of the data model and cannot be changed for existing keys without migration
+- A migration would orphan all existing production API keys
+- **Action:** Preserve for backward compatibility; start issuing new keys with this prefix indefinitely
+
+#### Documentation & Public Interfaces
+- **All** user-facing documentation, UI components, API titles, and frontend branding → use **QueryGateway**
+- These are updated continuously without infrastructure impact
+
+This policy balances naming consistency (user visibility) with operational stability (internal systems).

@@ -19,7 +19,7 @@ export function Layout() {
       {/* Sidebar */}
       <aside className="flex w-56 flex-col border-r bg-muted/20">
         <div className="border-b px-4 py-5">
-          <h1 className="text-base font-bold tracking-tight">DB2API</h1>
+          <h1 className="text-base font-bold tracking-tight">QueryGateway</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">Admin Console</p>
         </div>
         <nav className="flex-1 space-y-1 px-2 py-4">

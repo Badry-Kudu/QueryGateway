@@ -4,7 +4,7 @@
 
 ```
 ┌───────────────────────────────────────────────────────────────────┐
-│                        DB2API-Exposure                            │
+│                        QueryGateway                               │
 │                                                                   │
 │  ┌──────────────┐    HTTP     ┌──────────────────────────────┐   │
 │  │   Frontend   │ ──────────▶ │         Backend (FastAPI)    │   │
@@ -61,7 +61,7 @@ Pydantic Settings v2 loads all configuration from environment variables (`.env` 
 ## Directory Layout
 
 ```
-DB2API-Exposure/
+QueryGateway/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py          # FastAPI app factory, CORS, router registration

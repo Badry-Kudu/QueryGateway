@@ -1,4 +1,4 @@
-# GitHub Copilot Instructions for DB2API-Exposure
+# GitHub Copilot Instructions for QueryGateway
 
 ## Scope
 These instructions apply repository-wide. Prefer local instructions under `.github/instructions/*.instructions.md` when editing specific areas.

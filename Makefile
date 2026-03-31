@@ -3,7 +3,7 @@
 
 # Default target
 help:
-	@echo "DB2API-Exposure — available targets:"
+	@echo "QueryGateway — available targets:"
 	@echo ""
 	@echo "  make setup           Install all dependencies (backend + frontend)"
 	@echo "  make check           Run all linting, type-checks, and tests"

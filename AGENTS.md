@@ -1,4 +1,4 @@
-# DB2API-Exposure Agent Guide (Canonical)
+# QueryGateway Agent Guide (Canonical)
 
 ## Mission
 Build and maintain a secure, testable monorepo for dynamic SQL-to-API exposure with:

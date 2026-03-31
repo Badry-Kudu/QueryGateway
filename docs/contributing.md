@@ -1,4 +1,4 @@
-# Contributing to DB2API-Exposure
+# Contributing to QueryGateway
 
 ## Prerequisites
 

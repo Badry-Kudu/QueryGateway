@@ -1,6 +1,6 @@
 # Security Checklist
 
-Comprehensive security validation for DB2API-Exposure production deployments. All items must be verified before go-live.
+Comprehensive security validation for QueryGateway production deployments. All items must be verified before go-live.
 
 ## Authentication & Authorization
 
