@@ -337,11 +337,12 @@ async def data_endpoint(
             default = descriptor.get("default")
 
             if raw_value is not None:
+                max_length = descriptor.get("max_length")
                 try:
                     params[param_name] = _coerce_param(
                         raw_value,
                         str(param_type),
-                        int(descriptor["max_length"]) if descriptor.get("max_length") is not None else None,
+                        int(max_length) if max_length is not None else None,
                     )
                 except (ValueError, TypeError) as exc:
                     duration_ms = (time.monotonic() - start) * 1000

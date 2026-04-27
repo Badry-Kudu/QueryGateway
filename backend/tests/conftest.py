@@ -44,15 +44,27 @@ from sqlalchemy.ext.asyncio import (
 )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture()
 async def engine() -> AsyncGenerator[AsyncEngine, None]:
-    """Session-scoped engine: create all tables once, drop after suite."""
+    """Function-scoped engine: each test gets a fresh engine on the test's
+    own event loop, then `create_all` / `drop_all` for full isolation.
+
+    Why function-scoped? pytest-asyncio 0.25 runs each test on its own event
+    loop (controlled by an internal marker that, in auto mode, defaults to
+    function scope and cannot be overridden via ini). asyncpg connections
+    are loop-bound, so a session-scoped engine ends up handing connections
+    from one loop into tests running on a different loop, triggering
+    ``RuntimeError: Future attached to a different loop``. Recreating the
+    engine per test costs a few hundred ms total across the suite but
+    eliminates the entire class of cross-loop bugs and keeps tests fully
+    isolated. Revisit once pytest-asyncio >= 0.26 (with
+    ``asyncio_default_test_loop_scope``) is adopted.
+    """
     test_engine = create_async_engine(settings.database_url, echo=False)
     async with test_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     yield test_engine
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
     await test_engine.dispose()
 
 

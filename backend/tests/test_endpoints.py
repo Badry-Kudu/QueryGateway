@@ -79,6 +79,7 @@ def test_endpoint_create_valid() -> None:
         path="employees",
         connection_id=conn_id,
         sql_text="SELECT * FROM employees WHERE dept_id = :dept_id",
+        param_schema={"dept_id": {"type": "integer", "required": True}},
     )
     assert payload.name == "test-endpoint"
     assert payload.path == "employees"

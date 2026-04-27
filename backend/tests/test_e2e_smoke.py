@@ -366,11 +366,12 @@ class TestE2EHealthDashboard:
         assert r.status_code == 200
         data = r.json()
 
-        assert "status" in data
-        assert "database" in data
+        assert "overall" in data
+        assert "components" in data
         assert "scheduler" in data
-        assert "connections" in data
-        assert "endpoints" in data
+        assert "database" in data["components"]
+        assert "connections" in data["components"]
+        assert "endpoints" in data["components"]
 
 
 # ── Settings cross-check ─────────────────────────────────────────────────────
@@ -388,6 +389,8 @@ class TestE2ESettings:
 
     async def test_get_known_setting(self, async_client: object) -> None:
         client: AsyncClient = async_client  # type: ignore[assignment]
+        # GET-by-key does not seed; the list endpoint is what seeds defaults.
+        await client.get("/api/v1/admin/settings/")
         r = await client.get("/api/v1/admin/settings/query_timeout_seconds")
         assert r.status_code == 200
         data = r.json()

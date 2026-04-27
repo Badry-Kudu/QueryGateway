@@ -37,7 +37,8 @@ class Settings(BaseSettings):
     query_timeout_seconds: int = 30
 
     # Credential encryption — Fernet key (base64-encoded 32-byte key).
-    # To generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # To generate:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     # MUST be provided via environment; no default is set to avoid shipping a known key.
     encryption_key: str
 
