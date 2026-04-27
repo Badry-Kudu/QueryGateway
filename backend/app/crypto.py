@@ -42,7 +42,11 @@ def decrypt_password(ciphertext: bytes) -> str:
         Plaintext password string.
 
     Raises:
-        ValueError: If decryption fails (wrong key or corrupted data).
+        ValueError: If the ciphertext is invalid for the configured key
+            (wrong key or corrupted data — Fernet's ``InvalidToken``).
+        TypeError: If ``ciphertext`` is not bytes/str (propagated from
+            cryptography).  Other unexpected exceptions also propagate
+            unchanged so genuine bugs aren't masked.
     """
     try:
         return _fernet().decrypt(ciphertext).decode()
