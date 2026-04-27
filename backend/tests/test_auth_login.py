@@ -2,6 +2,8 @@
 
 from datetime import datetime
 
+import jwt
+from app.config import settings
 from httpx import AsyncClient
 
 from tests.conftest import ADMIN_TEST_PASSWORD
@@ -18,6 +20,18 @@ async def test_login_success(unauth_client: AsyncClient) -> None:
     assert isinstance(body["access_token"], str) and body["access_token"]
     # `expires_at` round-trips as ISO-8601.
     datetime.fromisoformat(body["expires_at"].replace("Z", "+00:00"))
+
+    # The token must carry the full claim set (sub/iat/exp). Decoding here
+    # verifies the signature too, so we know the token is genuinely usable.
+    payload = jwt.decode(
+        body["access_token"],
+        settings.jwt_secret_key,
+        algorithms=[settings.jwt_algorithm],
+    )
+    assert payload["sub"] == "admin"
+    assert isinstance(payload["iat"], int)
+    assert isinstance(payload["exp"], int)
+    assert payload["exp"] > payload["iat"]
 
 
 async def test_login_wrong_password(unauth_client: AsyncClient) -> None:

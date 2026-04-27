@@ -103,6 +103,32 @@ def test_encryption_key_rejects_malformed(monkeypatch: pytest.MonkeyPatch) -> No
     )
 
 
+def test_admin_password_hash_rejects_plaintext(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A plaintext ADMIN_PASSWORD_HASH must fail at startup, not on first login.
+
+    Without this guard, an operator who pastes the plaintext password
+    instead of the bcrypt hash would see every /api/v1/auth/login request
+    return 500 (bcrypt.checkpw raises on malformed input) — effectively
+    locking themselves out with no clear diagnostic.
+    """
+    monkeypatch.setenv("JWT_SECRET_KEY", _VALID_JWT_KEY)
+    monkeypatch.setenv("ENCRYPTION_KEY", _VALID_FERNET_KEY)
+    monkeypatch.setenv("ADMIN_USERNAME", "admin")
+    monkeypatch.setenv("ADMIN_PASSWORD_HASH", "this-is-not-a-bcrypt-hash")
+
+    from app.config import Settings
+
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(_env_file=None)
+
+    assert any(
+        err["loc"] == ("admin_password_hash",) and err["type"] == "value_error"
+        for err in exc_info.value.errors()
+    )
+
+
 def test_settings_build_when_required_envs_present(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

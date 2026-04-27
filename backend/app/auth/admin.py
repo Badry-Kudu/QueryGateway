@@ -14,7 +14,7 @@ dependency surface stays the same — only this module changes.
 from dataclasses import dataclass
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.auth.hashing import verify_password
 from app.auth.jwt_utils import TokenError, verify_access_token
@@ -28,12 +28,12 @@ class AdminPrincipal:
     username: str
 
 
-# ``tokenUrl`` points clients (including FastAPI's docs) at the login route.
-# ``auto_error=False`` so we can raise our own 401 with a clear detail.
-_oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/api/v1/auth/login",
-    auto_error=False,
-)
+# HTTPBearer (rather than OAuth2PasswordBearer) because the login route
+# accepts a JSON body, not OAuth2's form-encoded password grant. Using
+# OAuth2PasswordBearer here would cause FastAPI's docs to advertise an
+# OAuth2 password flow that doesn't match the real contract.
+# ``auto_error=False`` lets us raise our own 401 with a stable detail.
+_bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def authenticate_admin(username: str, password: str) -> AdminPrincipal | None:
@@ -52,7 +52,7 @@ def authenticate_admin(username: str, password: str) -> AdminPrincipal | None:
 
 
 async def get_current_admin(
-    token: str | None = Depends(_oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),  # noqa: B008
 ) -> AdminPrincipal:
     """FastAPI dependency that resolves the bearer token to an AdminPrincipal.
 
@@ -61,7 +61,7 @@ async def get_current_admin(
     ``APIRouter(..., dependencies=[Depends(get_current_admin)])`` so
     unauthenticated traffic is rejected before any handler runs.
     """
-    if not token:
+    if credentials is None or not credentials.credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required.",
@@ -70,7 +70,7 @@ async def get_current_admin(
 
     try:
         payload = verify_access_token(
-            token,
+            credentials.credentials,
             secret=settings.jwt_secret_key,
             algorithm=settings.jwt_algorithm,
         )
@@ -81,10 +81,11 @@ async def get_current_admin(
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 
+    # `verify_access_token` requires sub/exp/iat to be present, but we
+    # still defensively check that sub matches the configured admin in
+    # case the username was rotated between issuing and verifying.
     subject = payload.get("sub")
     if not isinstance(subject, str) or subject != settings.admin_username:
-        # Token signed by us but not for the configured admin (e.g. after
-        # a username change). Reject rather than trust the claim.
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token subject does not match the configured admin.",

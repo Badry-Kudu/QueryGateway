@@ -53,6 +53,11 @@ def verify_access_token(
 ) -> dict[str, object]:
     """Verify a JWT and return its decoded payload.
 
+    The contract is intentionally strict: ``sub``, ``exp``, and ``iat``
+    must all be present.  PyJWT only enforces ``exp`` when the claim is
+    present in the token — which means a signed-but-claimless token
+    would otherwise pass verification and authorize traffic forever.
+
     Args:
         token:     The encoded JWT string.
         secret:    HMAC signing secret used to verify the signature.
@@ -62,11 +67,15 @@ def verify_access_token(
         Decoded payload dict.
 
     Raises:
-        TokenError: If the token is expired, malformed, or has an invalid signature.
+        TokenError: If the token is expired, malformed, has an invalid
+            signature, or is missing one of the required claims.
     """
     try:
         payload: dict[str, object] = jwt.decode(
-            token, secret, algorithms=[algorithm]
+            token,
+            secret,
+            algorithms=[algorithm],
+            options={"require": ["exp", "iat", "sub"]},
         )
         return payload
     except ExpiredSignatureError as exc:
