@@ -390,7 +390,8 @@ class TestE2ESettings:
     async def test_get_known_setting(self, async_client: object) -> None:
         client: AsyncClient = async_client  # type: ignore[assignment]
         # GET-by-key does not seed; the list endpoint is what seeds defaults.
-        await client.get("/api/v1/admin/settings/")
+        seed = await client.get("/api/v1/admin/settings/")
+        assert seed.status_code == 200
         r = await client.get("/api/v1/admin/settings/query_timeout_seconds")
         assert r.status_code == 200
         data = r.json()
