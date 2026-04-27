@@ -51,13 +51,25 @@ describe("axios interceptors", () => {
     expect.assertions(1);
   });
 
-  it("clears the token and redirects to /login on 401 from a protected endpoint", async () => {
+  it("clears the token and redirects to /login with ?from= on 401 from a protected endpoint", async () => {
     tokenStorage.write("about-to-expire");
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: {
+        ...window.location,
+        pathname: "/endpoints",
+        search: "?step=2",
+        hash: "#preview",
+        assign: vi.fn(),
+      },
+    });
     mock.onGet("/api/v1/admin/connections/").reply(401, { detail: "expired" });
 
     await expect(connectionsApi.list()).rejects.toBeDefined();
     expect(tokenStorage.read()).toBeNull();
-    expect(window.location.assign).toHaveBeenCalledWith("/login");
+    expect(window.location.assign).toHaveBeenCalledWith(
+      `/login?from=${encodeURIComponent("/endpoints?step=2#preview")}`,
+    );
   });
 
   it("does NOT clear the token or redirect on 401 from /api/v1/auth/login", async () => {

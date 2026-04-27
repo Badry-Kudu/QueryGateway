@@ -49,7 +49,10 @@ http.interceptors.request.use((config) => {
 
 // On 401 from any admin endpoint, clear the stored token and bounce to
 // /login. Skips the login route itself so a wrong-password response
-// doesn't bury the user in a redirect loop.
+// doesn't bury the user in a redirect loop. The current pathname +
+// search + hash are passed via ?from=<encoded> so LoginPage can return
+// the user to where they were after re-authenticating (the React Router
+// guard uses state.from, but a hard navigation can't carry state).
 http.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -59,7 +62,9 @@ http.interceptors.response.use(
       if (!isLoginCall) {
         tokenStorage.clear();
         if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-          window.location.assign("/login");
+          const from = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+          const loginUrl = `/login?from=${encodeURIComponent(from)}`;
+          window.location.assign(loginUrl);
         }
       }
     }

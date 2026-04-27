@@ -86,4 +86,69 @@ describe("LoginPage", () => {
     expect(await screen.findByText(/Invalid username or password/i)).toBeInTheDocument();
     expect(tokenStorage.read()).toBeNull();
   });
+
+  it("returns the user to the full attempted path captured by RequireAuth", async () => {
+    loginMock.mockResolvedValueOnce({
+      access_token: "minted-jwt",
+      token_type: "bearer",
+      expires_at: "2026-01-01T00:00:00Z",
+    });
+
+    renderLogin([
+      {
+        pathname: "/login",
+        state: { from: { pathname: "/secret", search: "?q=1", hash: "#x" } },
+      },
+    ]);
+
+    fireEvent.change(screen.getByLabelText(/username/i), {
+      target: { value: "admin" },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: "hunter2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(await screen.findByText("Secret Page")).toBeInTheDocument();
+  });
+
+  it("falls back to the ?from= query param when state is absent (set by axios interceptor)", async () => {
+    loginMock.mockResolvedValueOnce({
+      access_token: "minted-jwt",
+      token_type: "bearer",
+      expires_at: "2026-01-01T00:00:00Z",
+    });
+
+    renderLogin([`/login?from=${encodeURIComponent("/secret?q=1")}`]);
+
+    fireEvent.change(screen.getByLabelText(/username/i), {
+      target: { value: "admin" },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: "hunter2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(await screen.findByText("Secret Page")).toBeInTheDocument();
+  });
+
+  it("rejects off-site redirects in the ?from= query param", async () => {
+    loginMock.mockResolvedValueOnce({
+      access_token: "minted-jwt",
+      token_type: "bearer",
+      expires_at: "2026-01-01T00:00:00Z",
+    });
+
+    renderLogin([`/login?from=${encodeURIComponent("//evil.example.com/")}`]);
+
+    fireEvent.change(screen.getByLabelText(/username/i), {
+      target: { value: "admin" },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: "hunter2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+
+    expect(await screen.findByText("Dashboard Home")).toBeInTheDocument();
+  });
 });
