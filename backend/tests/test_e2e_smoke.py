@@ -230,7 +230,9 @@ class TestE2EAuthTypes:
         assert r.status_code == 201
         return ep_path
 
-    async def test_bearer_auth_enforced(self, async_client: object) -> None:
+    async def test_bearer_auth_enforced(
+        self, async_client: object, unauth_client: AsyncClient
+    ) -> None:
         client: AsyncClient = async_client  # type: ignore[assignment]
 
         # Create bearer auth
@@ -241,8 +243,11 @@ class TestE2EAuthTypes:
         auth_id = r.json()["id"]
         ep_path = await self._create_connection_and_endpoint(client, auth_id)
 
-        # No auth → 401
-        r = await client.get(f"/api/v1/data/{ep_path}")
+        # The default `async_client` carries an admin bearer token (Phase 2);
+        # the data plane has its own auth and admin tokens aren't valid
+        # against it. Use `unauth_client` here to exercise the genuinely
+        # no-Authorization-header path.
+        r = await unauth_client.get(f"/api/v1/data/{ep_path}")
         assert r.status_code == 401
         assert "Bearer token required" in r.json()["detail"]
 

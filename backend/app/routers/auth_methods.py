@@ -17,6 +17,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.admin import get_current_admin
 from app.dependencies import get_db
 from app.repositories.auth_method import AuthMethodRepository
 from app.schemas.auth_method import (
@@ -29,7 +30,11 @@ from app.schemas.auth_method import (
 )
 from app.services.auth_method import AuthMethodService
 
-router = APIRouter(prefix="/api/v1/admin/auth", tags=["auth-methods"])
+router = APIRouter(
+    prefix="/api/v1/admin/auth",
+    tags=["auth-methods"],
+    dependencies=[Depends(get_current_admin)],
+)
 
 
 def _service(db: AsyncSession = Depends(get_db)) -> AuthMethodService:

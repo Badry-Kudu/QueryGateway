@@ -5,7 +5,10 @@ GET /api/v1/admin/health/ready     — Readiness probe (checks PostgreSQL connec
 GET /api/v1/admin/health/dashboard — Aggregated system health dashboard.
 
 Container orchestrators should call /live for restart decisions and /ready
-to gate traffic routing.
+to gate traffic routing.  Both are intentionally unauthenticated so that
+load balancers and orchestrators (which can't carry an admin token) can
+reach them; /dashboard, which exposes operational state and resource
+counts, is gated on admin auth.
 """
 
 import structlog
@@ -14,6 +17,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.admin import get_current_admin
 from app.dependencies import get_db
 from app.schemas.health import HealthCheck
 from app.services.health import get_health_dashboard
@@ -67,6 +71,7 @@ async def readiness(db: AsyncSession = Depends(get_db)) -> JSONResponse:
         "Aggregated system health: DB connectivity, scheduler status, "
         "recent job outcomes, stale snapshot detection, resource counts."
     ),
+    dependencies=[Depends(get_current_admin)],
 )
 async def dashboard(db: AsyncSession = Depends(get_db)) -> JSONResponse:
     data = await get_health_dashboard(db)

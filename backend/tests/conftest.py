@@ -31,10 +31,19 @@ os.environ.setdefault(
     "JWT_SECRET_KEY",
     "test-secret-key-do-not-use-in-production",
 )
+# Test-only admin credentials. Plaintext for ADMIN_PASSWORD_HASH is the
+# string in ADMIN_TEST_PASSWORD below.  Keep the hash in sync with the
+# value in .github/workflows/backend.yml.
+os.environ.setdefault("ADMIN_USERNAME", "admin")
+os.environ.setdefault(
+    "ADMIN_PASSWORD_HASH",
+    "$2b$12$YzgLtLngpsgS39BQBSK0We/dWJoG7/pGiGpHrYMAB.ffcru5FC84q",
+)
 
 from collections.abc import AsyncGenerator
 
 import pytest
+from app.auth.jwt_utils import create_access_token
 from app.config import settings
 from app.dependencies import get_db
 from app.main import app
@@ -46,6 +55,26 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+
+# Plaintext counterpart to ADMIN_PASSWORD_HASH above. Tests import this
+# rather than hard-coding the password in each file.
+ADMIN_TEST_PASSWORD = "admin-password-do-not-use-in-prod"
+
+
+def _mint_admin_token() -> str:
+    """Mint a valid admin JWT using the test-time settings.
+
+    Used to authenticate the default ``async_client`` so existing
+    integration tests don't have to know about the new login flow.
+    Negative-path tests should use ``unauth_client`` instead.
+    """
+    token, _ = create_access_token(
+        subject=settings.admin_username,
+        secret=settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+        expire_minutes=settings.jwt_access_token_expire_minutes,
+    )
+    return token
 
 
 @pytest.fixture()
@@ -107,8 +136,30 @@ async def db_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
 async def async_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """HTTP test client wired to the FastAPI app with a test DB session.
 
-    Use this fixture for tests that exercise DB-dependent endpoints (e.g.
-    /ready).  Requires DATABASE_URL to be reachable (available in CI).
+    Authenticated by default — every request carries a valid admin
+    bearer token so existing admin-route integration tests keep
+    working post-Phase-2.  Use ``unauth_client`` to test 401 paths
+    explicitly.
+    """
+
+    async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {_mint_admin_token()}"},
+    ) as client:
+        yield client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+async def unauth_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+    """HTTP test client without an Authorization header.
+
+    Use for tests that verify the 401 path on admin routes.
     """
 
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:

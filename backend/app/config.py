@@ -35,6 +35,39 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
 
+    # Seeded admin credentials — REQUIRED.
+    # The app supports a single admin account whose username and bcrypt
+    # password hash are supplied via environment variables. There is no
+    # users table; rotating the credential means redeploying with a new
+    # ADMIN_PASSWORD_HASH. Generate the hash with:
+    #   python -c "from app.auth.hashing import hash_password; \
+    #              print(hash_password('your-password'))"
+    admin_username: str = Field(min_length=1)
+    admin_password_hash: str = Field(min_length=1)
+
+    @field_validator("admin_password_hash")
+    @classmethod
+    def _validate_bcrypt_hash(cls, value: str) -> str:
+        """Reject ADMIN_PASSWORD_HASH values that are not valid bcrypt
+        hashes at startup, rather than producing 500s on every login.
+
+        bcrypt's checkpw raises ``ValueError`` on malformed input (plaintext,
+        wrong scheme, truncated digest, etc.). Probing once with a dummy
+        password gives us a clear startup failure with actionable guidance
+        instead of a runtime DoS.
+        """
+        import bcrypt  # local import to avoid widening config.py imports
+
+        try:
+            bcrypt.checkpw(b"probe", value.encode())
+        except ValueError as exc:
+            raise ValueError(
+                "ADMIN_PASSWORD_HASH must be a bcrypt hash. Generate with: "
+                'python -c "from app.auth.hashing import hash_password; '
+                "print(hash_password('your-password'))\""
+            ) from exc
+        return value
+
     # Logging
     log_level: str = "INFO"
 
