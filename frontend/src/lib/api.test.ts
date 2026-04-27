@@ -86,4 +86,16 @@ describe("axios interceptors", () => {
     expect(tokenStorage.read()).toBe("a-token-from-a-prior-session");
     expect(window.location.assign).not.toHaveBeenCalled();
   });
+
+  it("treats /api/v1/auth/login-like substrings as session-expiry, not login", async () => {
+    // Regression for CodeRabbit review: ensure a hypothetical sibling
+    // route whose path *contains* /api/v1/auth/login doesn't get
+    // mistakenly classified as the login call (it should redirect on 401).
+    tokenStorage.write("about-to-expire");
+    mock.onGet("/api/v1/auth/login-history").reply(401, { detail: "expired" });
+
+    await expect(http.get("/api/v1/auth/login-history")).rejects.toBeDefined();
+    expect(tokenStorage.read()).toBeNull();
+    expect(window.location.assign).toHaveBeenCalled();
+  });
 });

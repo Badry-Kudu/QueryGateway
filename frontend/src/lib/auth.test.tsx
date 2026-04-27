@@ -64,4 +64,32 @@ describe("AuthProvider / useAuth", () => {
     // renderHook will surface the error; assert via spyOn-style pattern.
     expect(() => renderHook(() => useAuth())).toThrow(/AuthProvider/);
   });
+
+  it("setToken throws and leaves state unauthenticated when storage is unavailable", () => {
+    // Simulate localStorage being unavailable: setItem is a no-op so the
+    // value never persists. This is the failure mode handled by the
+    // try/catch inside writeStoredToken (private mode, sandboxed iframes
+    // with storage disabled, etc.).
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      // no-op
+    });
+    const getItem = vi.spyOn(Storage.prototype, "getItem").mockReturnValue(null);
+
+    try {
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      expect(() =>
+        act(() => {
+          result.current.setToken("phantom-token");
+        }),
+      ).toThrow(/storage is unavailable/i);
+
+      // Crucially: state did NOT flip to authenticated. Without this guard
+      // the axios interceptor would send unauthenticated calls forever.
+      expect(result.current.isAuthenticated).toBe(false);
+      expect(result.current.token).toBeNull();
+    } finally {
+      setItem.mockRestore();
+      getItem.mockRestore();
+    }
+  });
 });

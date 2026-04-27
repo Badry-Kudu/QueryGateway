@@ -62,7 +62,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setTokenState] = useState<string | null>(() => readStoredToken());
 
   const setToken = useCallback((next: string) => {
+    // Persist first, then read back to verify the write actually stuck.
+    // localStorage can be silently unavailable (private mode, sandboxed
+    // iframe, disabled storage) — in that case readStoredToken returns
+    // null, the axios interceptor sends no Authorization header, and
+    // the user would be stuck in a login → 401 → /login redirect loop.
+    // Failing fast here lets LoginPage surface a clear error instead.
     writeStoredToken(next);
+    if (readStoredToken() !== next) {
+      throw new Error(
+        "Browser storage is unavailable; sign-in cannot be persisted. " +
+          "Enable cookies / site data and try again.",
+      );
+    }
     setTokenState(next);
   }, []);
 

@@ -58,7 +58,10 @@ http.interceptors.response.use(
   (error) => {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
       const url = error.config?.url ?? "";
-      const isLoginCall = url.includes("/api/v1/auth/login");
+      // Exact match (relative path) or absolute (with baseURL) — never
+      // a substring match, so a hypothetical /api/v1/auth/login-history
+      // wouldn't accidentally bypass the redirect.
+      const isLoginCall = url === "/api/v1/auth/login" || url.endsWith("/api/v1/auth/login");
       if (!isLoginCall) {
         tokenStorage.clear();
         if (typeof window !== "undefined" && window.location.pathname !== "/login") {
