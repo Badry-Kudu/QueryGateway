@@ -212,7 +212,14 @@ class ConnectionService:
         try:
             from app.config import settings  # noqa: PLC0415
             oracle_version = await anyio.to_thread.run_sync(
-                partial(_probe, obj.username, password, dsn, obj.mode == "thick", settings.oracle_client_lib_dir)
+                partial(
+                    _probe,
+                    obj.username,
+                    password,
+                    dsn,
+                    obj.mode == "thick",
+                    settings.oracle_client_lib_dir,
+                )
             )
             duration_ms = (time.monotonic() - start) * 1000
             log.info(

@@ -44,16 +44,48 @@ from sqlalchemy.ext.asyncio import (
 )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture()
 async def engine() -> AsyncGenerator[AsyncEngine, None]:
-    """Session-scoped engine: create all tables once, drop after suite."""
-    test_engine = create_async_engine(settings.database_url, echo=False)
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield test_engine
+    """Function-scoped engine: each test gets a fresh schema on the test's
+    own event loop.
+
+    Why function-scoped? pytest-asyncio 0.25 runs each test on its own event
+    loop (controlled by an internal marker that, in auto mode, defaults to
+    function scope and cannot be overridden via ini). asyncpg connections
+    are loop-bound, so a session-scoped engine ends up handing connections
+    from one loop into tests running on a different loop, triggering
+    ``RuntimeError: Future attached to a different loop``. Recreating the
+    engine per test costs a few hundred ms total across the suite but
+    eliminates the entire class of cross-loop bugs and keeps tests fully
+    isolated. Revisit once pytest-asyncio >= 0.26 (with
+    ``asyncio_default_test_loop_scope``) is adopted.
+
+    Lifecycle: ``drop_all`` then ``create_all`` before yield (cleans up
+    leftover tables from a crashed prior run); ``drop_all`` after yield
+    so the database is left empty between tests.
+    """
+    database_url = settings.database_url
+    # Hard safety guard: never run destructive schema ops against a DB that
+    # isn't clearly marked as a test database. Without this, a developer
+    # invoking pytest with the default DATABASE_URL would have their app
+    # database wiped on every test run.
+    if settings.app_env != "test" and "test" not in database_url.lower():
+        raise RuntimeError(
+            "Refusing to run drop_all/create_all: APP_ENV is not 'test' and "
+            "DATABASE_URL does not contain 'test'. Set APP_ENV=test or point "
+            "DATABASE_URL at a test database."
+        )
+
+    test_engine = create_async_engine(database_url, echo=False)
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-    await test_engine.dispose()
+        await conn.run_sync(Base.metadata.create_all)
+    try:
+        yield test_engine
+    finally:
+        async with test_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await test_engine.dispose()
 
 
 @pytest.fixture()
