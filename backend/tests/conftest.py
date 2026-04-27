@@ -113,9 +113,26 @@ async def engine() -> AsyncGenerator[AsyncEngine, None]:
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
+
+    # Production code that opens its own ``AsyncSessionLocal()`` (notably
+    # the access-log writer in ``app.services.access_log``) bypasses the
+    # request-scoped session override.  Repoint the module-level factory
+    # at the test engine for the duration of the test so those writes
+    # land in the same database the test reads from.
+    import app.database
+
+    real_engine = app.database.engine
+    real_factory = app.database.AsyncSessionLocal
+    app.database.engine = test_engine
+    app.database.AsyncSessionLocal = async_sessionmaker(
+        test_engine, class_=AsyncSession, expire_on_commit=False
+    )
+
     try:
         yield test_engine
     finally:
+        app.database.engine = real_engine
+        app.database.AsyncSessionLocal = real_factory
         async with test_engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
         await test_engine.dispose()
