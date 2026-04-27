@@ -65,4 +65,9 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://db2api:db2api@localhost:5432/db2api_test
           JWT_SECRET_KEY: test-secret-key-do-not-use-in-production
           APP_ENV: test
+          # Test-only admin credentials. Plaintext is
+          # "admin-password-do-not-use-in-prod"; the hash here is bcrypt.
+          # Production deployments MUST set their own ADMIN_PASSWORD_HASH.
+          ADMIN_USERNAME: admin
+          ADMIN_PASSWORD_HASH: $2b$12$YzgLtLngpsgS39BQBSK0We/dWJoG7/pGiGpHrYMAB.ffcru5FC84q
         run: pytest

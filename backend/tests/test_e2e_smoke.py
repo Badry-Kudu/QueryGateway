@@ -241,8 +241,13 @@ class TestE2EAuthTypes:
         auth_id = r.json()["id"]
         ep_path = await self._create_connection_and_endpoint(client, auth_id)
 
-        # No auth → 401
-        r = await client.get(f"/api/v1/data/{ep_path}")
+        # No auth → 401. The default `async_client` carries an admin
+        # bearer token (Phase 2); the data plane has its own auth and
+        # admin tokens aren't valid against it, so we strip the header
+        # to test the "no Authorization at all" path here.
+        r = await client.get(
+            f"/api/v1/data/{ep_path}", headers={"Authorization": ""}
+        )
         assert r.status_code == 401
         assert "Bearer token required" in r.json()["detail"]
 

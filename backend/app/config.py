@@ -35,6 +35,16 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
 
+    # Seeded admin credentials — REQUIRED.
+    # The app supports a single admin account whose username and bcrypt
+    # password hash are supplied via environment variables. There is no
+    # users table; rotating the credential means redeploying with a new
+    # ADMIN_PASSWORD_HASH. Generate the hash with:
+    #   python -c "from app.auth.hashing import hash_password; \
+    #              print(hash_password('your-password'))"
+    admin_username: str = Field(min_length=1)
+    admin_password_hash: str = Field(min_length=1)
+
     # Logging
     log_level: str = "INFO"
 

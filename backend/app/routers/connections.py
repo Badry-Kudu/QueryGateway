@@ -17,6 +17,7 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.admin import get_current_admin
 from app.dependencies import get_db
 from app.repositories.connection import ConnectionRepository
 from app.schemas.connection import (
@@ -29,7 +30,11 @@ from app.services.connection import ConnectionService
 
 log = structlog.get_logger()
 
-router = APIRouter(prefix="/api/v1/admin/connections", tags=["connections"])
+router = APIRouter(
+    prefix="/api/v1/admin/connections",
+    tags=["connections"],
+    dependencies=[Depends(get_current_admin)],
+)
 
 
 def _service(db: AsyncSession = Depends(get_db)) -> ConnectionService:
