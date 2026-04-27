@@ -25,8 +25,9 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
-    # JWT
-    jwt_secret_key: str = "changeme-use-a-real-secret-in-production"
+    # JWT — signing key MUST be provided via environment.
+    # No default is set to avoid shipping a known signing key.
+    jwt_secret_key: str
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
 

@@ -27,6 +27,10 @@ os.environ.setdefault(
     # Valid Fernet key (base64-encoded 32 bytes of zeroes) for test isolation.
     "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 )
+os.environ.setdefault(
+    "JWT_SECRET_KEY",
+    "test-secret-key-do-not-use-in-production",
+)
 
 from collections.abc import AsyncGenerator
 

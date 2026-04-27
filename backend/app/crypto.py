@@ -46,5 +46,5 @@ def decrypt_password(ciphertext: bytes) -> str:
     """
     try:
         return _fernet().decrypt(ciphertext).decode()
-    except (InvalidToken, Exception) as exc:
+    except InvalidToken as exc:
         raise ValueError("Failed to decrypt credential — key mismatch or corrupted data") from exc
