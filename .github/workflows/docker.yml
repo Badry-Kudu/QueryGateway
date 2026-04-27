@@ -49,6 +49,8 @@ jobs:
         run: |
           echo "JWT_SECRET_KEY=ci-placeholder-not-used-at-runtime" > .env
           echo "ENCRYPTION_KEY=ci-placeholder-not-used-at-runtime" >> .env
+          echo "ADMIN_USERNAME=ci-placeholder" >> .env
+          echo "ADMIN_PASSWORD_HASH=ci-placeholder-not-used-at-runtime" >> .env
 
       - name: Validate docker-compose config
         run: docker compose config --quiet
