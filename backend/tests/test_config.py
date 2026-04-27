@@ -35,7 +35,8 @@ def test_jwt_secret_key_rejects_empty(monkeypatch: pytest.MonkeyPatch) -> None:
         Settings(_env_file=None)
 
     assert any(
-        err["loc"] == ("jwt_secret_key",) for err in exc_info.value.errors()
+        err["loc"] == ("jwt_secret_key",) and err["type"] == "string_too_short"
+        for err in exc_info.value.errors()
     )
 
 
@@ -50,7 +51,8 @@ def test_jwt_secret_key_rejects_too_short(monkeypatch: pytest.MonkeyPatch) -> No
         Settings(_env_file=None)
 
     assert any(
-        err["loc"] == ("jwt_secret_key",) for err in exc_info.value.errors()
+        err["loc"] == ("jwt_secret_key",) and err["type"] == "string_too_short"
+        for err in exc_info.value.errors()
     )
 
 
@@ -80,7 +82,8 @@ def test_encryption_key_rejects_empty(monkeypatch: pytest.MonkeyPatch) -> None:
         Settings(_env_file=None)
 
     assert any(
-        err["loc"] == ("encryption_key",) for err in exc_info.value.errors()
+        err["loc"] == ("encryption_key",) and err["type"] == "value_error"
+        for err in exc_info.value.errors()
     )
 
 
@@ -95,7 +98,8 @@ def test_encryption_key_rejects_malformed(monkeypatch: pytest.MonkeyPatch) -> No
         Settings(_env_file=None)
 
     assert any(
-        err["loc"] == ("encryption_key",) for err in exc_info.value.errors()
+        err["loc"] == ("encryption_key",) and err["type"] == "value_error"
+        for err in exc_info.value.errors()
     )
 
 
