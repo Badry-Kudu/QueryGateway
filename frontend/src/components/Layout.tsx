@@ -1,6 +1,17 @@
-import { Activity, Clock, Cog, Database, Globe, LayoutDashboard, Shield } from "lucide-react";
-import { NavLink, Outlet } from "react-router-dom";
+import {
+  Activity,
+  Clock,
+  Cog,
+  Database,
+  Globe,
+  LayoutDashboard,
+  LogOut,
+  Shield,
+} from "lucide-react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -14,6 +25,14 @@ const navItems = [
 ];
 
 export function Layout() {
+  const { clearToken } = useAuth();
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    clearToken();
+    navigate("/login", { replace: true });
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
@@ -42,7 +61,18 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="border-t px-4 py-3 text-xs text-muted-foreground">v0.6.0 · Phase 6</div>
+        <div className="border-t px-2 py-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2.5 text-muted-foreground hover:text-foreground"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            Sign out
+          </Button>
+          <p className="mt-2 px-3 text-xs text-muted-foreground">v0.6.0 · Phase 6</p>
+        </div>
       </aside>
 
       {/* Main content */}

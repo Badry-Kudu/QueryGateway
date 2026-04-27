@@ -1,5 +1,6 @@
 import axios from "axios";
 
+import { tokenStorage } from "@/lib/auth";
 import type {
   Connection,
   ConnectionCreate,
@@ -30,10 +31,60 @@ import type {
 } from "@/types/schedule";
 import type { HealthDashboard, Setting, SettingBulkUpdate } from "@/types/setting";
 
-const http = axios.create({
+// Exported for tests so they can install axios-mock-adapter on the same
+// instance the production code uses (and exercise the interceptors).
+export const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000",
   headers: { "Content-Type": "application/json" },
 });
+
+// Attach the admin bearer token (if present) to every outgoing request.
+http.interceptors.request.use((config) => {
+  const token = tokenStorage.read();
+  if (token) {
+    config.headers.set("Authorization", `Bearer ${token}`);
+  }
+  return config;
+});
+
+// On 401 from any admin endpoint, clear the stored token and bounce to
+// /login. Skips the login route itself so a wrong-password response
+// doesn't bury the user in a redirect loop.
+http.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      const url = error.config?.url ?? "";
+      const isLoginCall = url.includes("/api/v1/auth/login");
+      if (!isLoginCall) {
+        tokenStorage.clear();
+        if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+          window.location.assign("/login");
+        }
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
+// ── Auth ──────────────────────────────────────────────────────────────────
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  expires_at: string;
+}
+
+export interface MeResponse {
+  username: string;
+}
+
+export const authApi = {
+  login: (username: string, password: string): Promise<LoginResponse> =>
+    http.post<LoginResponse>("/api/v1/auth/login", { username, password }).then((r) => r.data),
+
+  me: (): Promise<MeResponse> => http.get<MeResponse>("/api/v1/auth/me").then((r) => r.data),
+};
 
 // ── Connections ────────────────────────────────────────────────────────────
 
