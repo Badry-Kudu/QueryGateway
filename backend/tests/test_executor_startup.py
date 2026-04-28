@@ -56,9 +56,15 @@ def test_init_oracle_client_skipped_when_lib_dir_blank(
 def test_init_oracle_client_swallows_failures(
     monkeypatch: pytest.MonkeyPatch,
     fake_oracledb: MagicMock,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     """A bootstrap failure must not crash the app — the surfaced error
-    should come from the first connection attempt instead."""
+    should come from the first connection attempt instead. Verify the
+    warning is emitted so operators have something to correlate against.
+    structlog is configured with ``PrintLoggerFactory`` so events land
+    on stdout, not the stdlib logger that ``caplog`` hooks; use
+    ``capsys`` instead.
+    """
     monkeypatch.setattr(
         "app.main.settings.oracle_client_lib_dir",
         "/opt/oracle/instantclient_23",
@@ -66,5 +72,9 @@ def test_init_oracle_client_swallows_failures(
     fake_oracledb.side_effect = RuntimeError("DPI-1047: cannot locate libclntsh")
     from app.main import _init_oracle_client
 
-    # No exception expected — the warning is logged instead.
     _init_oracle_client()
+
+    captured = capsys.readouterr()
+    output = captured.out + captured.err
+    assert "oracle_client_init_failed" in output
+    assert "RuntimeError" in output

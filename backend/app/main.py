@@ -65,7 +65,13 @@ def _init_oracle_client() -> None:
     except Exception as exc:  # noqa: BLE001
         # Don't crash the whole app on Oracle bootstrap failures —
         # connections will surface a clearer error on first use.
-        log.warning("oracle_client_init_failed", error=str(exc))
+        # ``error_type`` lets operators correlate this warning with the
+        # downstream "Query execution failed: ..." raised by the executor.
+        log.warning(
+            "oracle_client_init_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
 
 
 @asynccontextmanager

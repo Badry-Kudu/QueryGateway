@@ -43,6 +43,9 @@ from app.models.access_log import AccessLog
 log = structlog.get_logger()
 
 
+_DEFAULT_STATUS = 500
+
+
 @dataclass
 class AccessLogContext:
     """Mutable handle handed to the protected block.
@@ -53,7 +56,7 @@ class AccessLogContext:
 
     request: Request
     path: str
-    status_code: int = 500
+    status_code: int = _DEFAULT_STATUS
     principal: str | None = None
     endpoint_id: uuid.UUID | None = None
 
@@ -78,13 +81,18 @@ async def log_access(
     try:
         yield ctx
     except HTTPException as exc:
-        # FastAPI translates this into a JSON response; record the status
-        # the client will actually see, then re-raise.
+        # FastAPI translates the exception into a JSON response, so the
+        # status code on the exception is the one the client will see.
+        # That always wins — it represents reality.
         ctx.status_code = exc.status_code
         await _write(ctx, duration_ms=(time.monotonic() - start) * 1000)
         raise
     except Exception:
-        ctx.status_code = 500
+        # Unhandled error: only fall back to 500 if the body hasn't
+        # already recorded a more specific status (e.g. a handler that
+        # returned and then failed in a finalizer).
+        if ctx.status_code == _DEFAULT_STATUS:
+            ctx.status_code = 500
         await _write(ctx, duration_ms=(time.monotonic() - start) * 1000)
         raise
     else:
@@ -94,11 +102,11 @@ async def log_access(
 async def _write(ctx: AccessLogContext, *, duration_ms: float) -> None:
     """Persist one row using a fresh session so the request's transaction
     state can never poison or be poisoned by the access log."""
+    request_id = str(
+        ctx.request.headers.get("X-Request-ID", "")
+        or ctx.request.state.__dict__.get("request_id", "")
+    )
     try:
-        request_id = str(
-            ctx.request.headers.get("X-Request-ID", "")
-            or ctx.request.state.__dict__.get("request_id", "")
-        )
         async with database.AsyncSessionLocal() as session:
             session.add(
                 AccessLog(
@@ -114,4 +122,12 @@ async def _write(ctx: AccessLogContext, *, duration_ms: float) -> None:
             )
             await session.commit()
     except Exception as exc:  # noqa: BLE001
-        log.warning("access_log_write_failed", error=str(exc), path=ctx.path)
+        log.warning(
+            "access_log_write_failed",
+            error=str(exc),
+            request_id=request_id,
+            user=ctx.principal or "anonymous",
+            endpoint=ctx.path,
+            status=ctx.status_code,
+            duration_ms=round(duration_ms, 2),
+        )

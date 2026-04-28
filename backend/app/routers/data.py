@@ -7,7 +7,7 @@ only for wiring the request, the service, and the access log.
 """
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,14 +37,11 @@ async def data_endpoint(
     path = full_path.strip("/").lower()
     full_url = f"/api/v1/data/{full_path}"
 
+    # ``log_access`` is an async context manager: any HTTPException
+    # raised by ``serve`` (404, 401, 422) propagates naturally and
+    # ``__aexit__`` records the actual status code from the exception.
     async with log_access(request, path=full_url) as access:
-        try:
-            result = await DataService(db).serve(path, request)
-        except HTTPException as exc:
-            # Re-raised so FastAPI returns the correct JSON; the
-            # context manager has already recorded the status.
-            raise exc
-
+        result = await DataService(db).serve(path, request)
         access.set_principal(result.principal)
         access.set_endpoint_id(result.endpoint_id)
         access.set_status(result.response.status_code)

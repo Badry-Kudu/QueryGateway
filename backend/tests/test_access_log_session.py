@@ -30,11 +30,17 @@ async def test_log_access_persists_outside_request_session(
     db_session: AsyncSession,
 ) -> None:
     """The access log row must be visible to a separate session even
-    after the request session is rolled back."""
+    after the request session is rolled back. Also verifies that
+    ``set_endpoint_id`` round-trips so the audit row links back to the
+    endpoint that served the request."""
+    import uuid
+
+    endpoint_id = uuid.uuid4()
     request = _fake_request()
     async with log_access(request, path="/api/v1/data/test") as ctx:
         ctx.set_status(200)
         ctx.set_principal("alice")
+        ctx.set_endpoint_id(endpoint_id)
 
     # Roll back the (unrelated) request-scoped session — the audit row
     # was written via its own session, so it must still be there.
@@ -47,6 +53,27 @@ async def test_log_access_persists_outside_request_session(
     assert len(rows) == 1
     assert rows[0].status_code == 200
     assert rows[0].principal == "alice"
+    assert rows[0].endpoint_id == endpoint_id
+
+
+async def test_log_access_preserves_caller_set_status_on_unhandled_exception(
+    db_session: AsyncSession,
+) -> None:
+    """If the body called ``set_status`` before raising, that value must
+    win over the 500 fallback in the unhandled-exception branch."""
+    request = _fake_request()
+    with pytest.raises(RuntimeError):
+        async with log_access(request, path="/api/v1/data/preset") as ctx:
+            ctx.set_status(418)  # client-visible status set deliberately
+            raise RuntimeError("unrelated background failure")
+
+    rows = (
+        await db_session.execute(
+            select(AccessLog).where(AccessLog.path == "/api/v1/data/preset"),
+        )
+    ).scalars().all()
+    assert len(rows) == 1
+    assert rows[0].status_code == 418
 
 
 async def test_log_access_persists_when_block_raises_http_exception(

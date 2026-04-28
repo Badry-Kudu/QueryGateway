@@ -57,11 +57,19 @@ def _apply_column_map(
 
 
 def _deprecation_headers(endpoint: ApiEndpoint) -> dict[str, str]:
+    """Build deprecation-related response headers.
+
+    ``deprecation_note`` is a free-form string the admin enters; it is
+    NOT an HTTP-date, so RFC 8594 says it doesn't belong in the
+    standard ``Sunset`` header. Send it as the unofficial
+    ``X-Deprecation-Note`` instead. If a real sunset date field is
+    added later, that can populate ``Sunset`` separately.
+    """
     if not endpoint.is_deprecated:
         return {}
     headers: dict[str, str] = {"Deprecation": "true"}
     if endpoint.deprecation_note:
-        headers["Sunset"] = endpoint.deprecation_note
+        headers["X-Deprecation-Note"] = endpoint.deprecation_note
     return headers
 
 
@@ -279,7 +287,10 @@ class DataService:
             log.error(
                 "data_endpoint_query_failed",
                 endpoint_id=str(endpoint.id),
-                path=path,
+                endpoint=path,
+                user=principal or "anonymous",
+                status=500,
+                request_id=request.headers.get("X-Request-ID", ""),
                 error=str(exc),
             )
             return JSONResponse(
@@ -309,11 +320,14 @@ class DataService:
         param_schema = endpoint.param_schema_json or {}
         Model = build_param_model(param_schema)
         # Pull only declared params from the query string; ignore unknowns
-        # to match the previous loop's behavior (Pydantic ``extra=forbid``
-        # in build_param_model would otherwise reject them).
+        # so the legacy loop's behavior is preserved. Filter on
+        # ``isinstance(descriptor, dict)`` so a corrupted non-dict
+        # schema entry (which ``build_param_model`` skips when defining
+        # fields) doesn't sneak through and force ``extra=ignore`` to
+        # silently drop the value mid-request.
         declared = {
             name: request.query_params[name]
-            for name in param_schema
-            if name in request.query_params
+            for name, descriptor in param_schema.items()
+            if isinstance(descriptor, dict) and name in request.query_params
         }
         return Model.model_validate(declared).model_dump()

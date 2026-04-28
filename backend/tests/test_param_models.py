@@ -118,3 +118,34 @@ def test_build_param_model_empty_schema_returns_empty_model() -> None:
     Model = build_param_model({})
     instance = Model.model_validate({})
     assert instance.model_dump() == {}
+
+
+def test_build_param_model_unknown_type_falls_back_to_string() -> None:
+    """Legacy ``_coerce_param`` returned the raw string for unknown types.
+    The new builder must keep that fallback so a corrupted ``type`` field
+    doesn't 500 every request."""
+    Model = build_param_model({"p": {"type": "unknown_type", "required": True}})
+    instance = Model.model_validate({"p": "any-value"})
+    assert instance.model_dump()["p"] == "any-value"
+
+
+def test_build_param_model_boolean_default_round_trips() -> None:
+    """A native bool default must survive ``_coerce_bool``'s pass-through
+    and produce the same bool when the param is missing."""
+    Model = build_param_model(
+        {"p": {"type": "boolean", "required": False, "default": True}},
+    )
+    instance = Model.model_validate({})
+    assert instance.model_dump()["p"] is True
+
+
+def test_build_param_model_default_applies_when_required_and_missing() -> None:
+    """Legacy code applied a configured ``default`` whenever the param was
+    missing — regardless of the ``required`` flag. Pin that contract here
+    so the Pydantic-based path doesn't 422 endpoints whose stored schema
+    combined ``required=true`` with a non-null default."""
+    Model = build_param_model(
+        {"p": {"type": "integer", "required": True, "default": 42}},
+    )
+    instance = Model.model_validate({})
+    assert instance.model_dump()["p"] == 42

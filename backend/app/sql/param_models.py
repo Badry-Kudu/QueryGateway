@@ -15,7 +15,10 @@ The descriptor format mirrors ``app.schemas.endpoint.ParamDescriptor`` —
 from datetime import date
 from typing import Annotated, Any, Literal, get_args
 
+import structlog
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, create_model
+
+log = structlog.get_logger()
 
 ParamType = Literal["string", "integer", "float", "boolean", "date"]
 _VALID_PARAM_TYPES = set(get_args(ParamType))
@@ -42,9 +45,7 @@ def _coerce_bool(value: object) -> object:
             return True
         if normalized in _BOOL_FALSE:
             return False
-        raise ValueError(
-            f"expected true/false/1/0/yes/no, got '{value}'"
-        )
+        raise ValueError(f"expected true/false/1/0/yes/no, got '{value}'")
     return value
 
 
@@ -74,7 +75,20 @@ def _build_field(descriptor: dict[str, Any]) -> tuple[type, Any]:
         if isinstance(max_length, int) and max_length >= 1:
             annotation = Annotated[str, Field(max_length=max_length)]  # type: ignore[assignment]
 
-    field_default = ... if required else default
+    # Legacy ``_coerce_param`` semantics: if a default is configured,
+    # apply it whenever the query param is missing — regardless of the
+    # ``required`` flag. The previous Pydantic-based draft made every
+    # required field unconditionally mandatory, which would 422 endpoints
+    # whose stored schema combined ``required=true`` with a non-null
+    # ``default``. ``ParamDescriptor`` still allows that combination, so
+    # honor it here.
+    if default is not None:
+        field_default = default
+    elif required:
+        field_default = ...
+    else:
+        field_default = None
+
     return annotation, field_default
 
 
@@ -82,17 +96,28 @@ def build_param_model(param_schema: dict[str, Any]) -> type[BaseModel]:
     """Construct a Pydantic model that validates ``param_schema`` payloads.
 
     Non-dict values in ``param_schema`` are ignored to match the legacy
-    ``_coerce_param`` loop, which skipped them defensively.
+    ``_coerce_param`` loop, which skipped them defensively. A warning is
+    emitted so operators can spot a corrupted schema.
+
+    The model uses ``extra="ignore"``: callers (notably ``DataService.
+    _coerce_params``) pre-filter the request to only include parameters
+    declared in the schema, so unknown keys never reach the model.
+    Choosing ``ignore`` over ``forbid`` makes that contract explicit.
     """
     fields: dict[str, tuple[type, Any]] = {}
     for name, descriptor in param_schema.items():
         if not isinstance(descriptor, dict):
+            log.warning(
+                "param_schema_invalid_descriptor",
+                param_name=name,
+                descriptor_type=type(descriptor).__name__,
+            )
             continue
         fields[name] = _build_field(descriptor)
 
     model = create_model(
         "EndpointParams",
-        __config__=ConfigDict(extra="forbid"),
+        __config__=ConfigDict(extra="ignore"),
         **fields,  # type: ignore[call-overload]
     )
     return model
