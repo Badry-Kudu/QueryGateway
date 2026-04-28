@@ -75,6 +75,21 @@ async def test_update_rejects_id_mutation(db_session: AsyncSession) -> None:
         await repo.update(obj, {"id": uuid.uuid4()})
 
 
+async def test_update_rejects_audit_columns(db_session: AsyncSession) -> None:
+    """``created_at`` / ``updated_at`` are owned by the database
+    (``server_default`` and ``onupdate`` on ``TimestampMixin``).
+    Client-side overrides would corrupt the audit trail."""
+    from datetime import UTC, datetime
+
+    repo = ConnectionRepository(db_session)
+    obj = await repo.create(_make_connection("update-audit-1"))
+    fake_ts = datetime(2000, 1, 1, tzinfo=UTC)
+    with pytest.raises(ValueError, match="Invalid or immutable field"):
+        await repo.update(obj, {"created_at": fake_ts})
+    with pytest.raises(ValueError, match="Invalid or immutable field"):
+        await repo.update(obj, {"updated_at": fake_ts})
+
+
 async def test_update_rejects_mixed_payload_atomically(
     db_session: AsyncSession,
 ) -> None:

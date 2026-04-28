@@ -81,14 +81,26 @@ class BaseCrudRepository(Generic[ModelT]):
         await self._db.refresh(obj)
         return obj
 
+    # Audit columns from ``TimestampMixin``. The DB owns them via
+    # ``server_default`` / ``onupdate``, so client-supplied values
+    # would corrupt the audit trail. Hard-coded rather than introspected
+    # because the mixin is a project convention, not a SQLAlchemy
+    # primitive — a future model that opts out of the mixin still gets
+    # the same protection at no cost.
+    _IMMUTABLE_AUDIT_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {"created_at", "updated_at"}
+    )
+
     async def update(self, obj: ModelT, changes: dict[str, object]) -> ModelT:
         # Validate the entire payload up-front so the operation is
         # all-or-nothing. ``hasattr(self.model, field)`` was too broad —
         # ``__tablename__`` and other class attrs would pass — so use
-        # the SQLAlchemy mapper's column attrs instead. The primary key
-        # is excluded explicitly: mutating ``id`` would orphan all
-        # foreign-key references that point at the old row.
-        allowed = {a.key for a in inspect(self.model).column_attrs if a.key != "id"}
+        # the SQLAlchemy mapper's column attrs instead. Both the primary
+        # key (mutating it orphans FK references) and audit columns
+        # (DB-managed) are filtered out of the allow-list.
+        mapper = inspect(self.model)
+        immutable = {col.key for col in mapper.primary_key} | self._IMMUTABLE_AUDIT_FIELDS
+        allowed = {a.key for a in mapper.column_attrs if a.key not in immutable}
         invalid = [f for f in changes if f not in allowed]
         if invalid:
             raise ValueError(
