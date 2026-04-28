@@ -81,11 +81,21 @@ class RequestLoggingMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Extract or generate the correlation ID from the incoming request.
+        # Extract or generate the correlation ID from the incoming
+        # request. Caller-supplied values are validated against the
+        # allow-list *before* being bound to log context, persisted via
+        # ``scope.state.request_id``, or echoed back in the response
+        # header — otherwise a malicious value (CRLF, ANSI escapes,
+        # 100KB blob) reaches all three sinks. ``resolve_request_id``
+        # only protects route handlers that read from ``request.state``
+        # *after* this middleware ran, so the validation has to happen
+        # here too.
         request_id: str | None = None
         for header_name, header_value in scope.get("headers", []):
             if header_name.lower() == b"x-request-id":
-                request_id = header_value.decode(errors="replace")
+                candidate = header_value.decode(errors="replace")
+                if _is_safe_request_id(candidate):
+                    request_id = candidate
                 break
         if not request_id:
             request_id = str(uuid.uuid4())

@@ -46,6 +46,23 @@ class BaseCrudRepository(Generic[ModelT]):
 
     model: ClassVar[type[Base]]
 
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        # Fail at class-definition time when a subclass forgets to set
+        # ``model``. The alternative is an obscure ``AttributeError`` on
+        # the first call to ``get_by_id`` — far harder to diagnose.
+        super().__init_subclass__(**kwargs)
+        model = cls.__dict__.get("model")
+        if model is None:
+            raise TypeError(
+                f"{cls.__name__} must set a class attribute "
+                f"'model' pointing at its ORM class."
+            )
+        if not isinstance(model, type) or not issubclass(model, Base):
+            raise TypeError(
+                f"{cls.__name__}.model must be an ORM class deriving "
+                f"from app.models.base.Base, got {model!r}."
+            )
+
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
 

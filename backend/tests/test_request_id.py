@@ -1,14 +1,17 @@
-"""Unit tests for ``resolve_request_id``.
+"""Unit tests for ``resolve_request_id`` and the middleware-level
+``X-Request-ID`` validation.
 
 Phase 4 follow-up: caller-supplied ``X-Request-ID`` headers are now
-allow-listed. These tests pin the contract directly against the helper,
-independent of the access-log persistence path.
+allow-listed at *both* layers — the middleware (``__call__``, primary
+path) and the ``resolve_request_id`` helper (fallback for handlers
+that read ``request.state``). These tests pin both contracts.
 """
 
 import re
 from unittest.mock import MagicMock
 
 from app.middleware import resolve_request_id
+from httpx import AsyncClient
 
 _UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
@@ -71,3 +74,53 @@ def test_resolve_request_id_rejects_unsafe_state_too() -> None:
     validates state as a defense in depth."""
     out = resolve_request_id(_request(state_value="bad value with spaces"))
     assert _UUID_RE.match(out)
+
+
+# ── Middleware-level validation ──────────────────────────────────────────────
+#
+# These tests drive the real ASGI app via ``http_client``. The header
+# value visible on the *response* proves what the middleware bound to
+# log context, persisted to ``access_logs.request_id``, and echoed
+# back — all three sinks are fed from the same variable.
+
+
+async def test_middleware_echoes_safe_header(http_client: AsyncClient) -> None:
+    response = await http_client.get(
+        "/api/v1/admin/health/live", headers={"X-Request-ID": "safe-rid-123"}
+    )
+    assert response.headers["x-request-id"] == "safe-rid-123"
+
+
+async def test_middleware_replaces_crlf_header_with_uuid(
+    http_client: AsyncClient,
+) -> None:
+    """If a caller sends CRLF in X-Request-ID, the middleware must NOT
+    reflect it — that would inject a header line into the response and
+    poison the JSON access-log entry."""
+    response = await http_client.get(
+        "/api/v1/admin/health/live",
+        headers={"X-Request-ID": "rid\r\nX-Injected: pwned"},
+    )
+    echoed = response.headers["x-request-id"]
+    assert _UUID_RE.match(echoed), f"expected UUID fallback, got {echoed!r}"
+
+
+async def test_middleware_replaces_oversized_header_with_uuid(
+    http_client: AsyncClient,
+) -> None:
+    response = await http_client.get(
+        "/api/v1/admin/health/live", headers={"X-Request-ID": "A" * 200}
+    )
+    echoed = response.headers["x-request-id"]
+    assert _UUID_RE.match(echoed)
+
+
+async def test_middleware_replaces_header_with_spaces(
+    http_client: AsyncClient,
+) -> None:
+    response = await http_client.get(
+        "/api/v1/admin/health/live",
+        headers={"X-Request-ID": "not a valid id"},
+    )
+    echoed = response.headers["x-request-id"]
+    assert _UUID_RE.match(echoed)
