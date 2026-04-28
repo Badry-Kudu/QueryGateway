@@ -15,12 +15,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-def _fake_request(method: str = "GET") -> MagicMock:
-    """Build a minimal Request stand-in suitable for log_access."""
+def _fake_request(method: str = "GET", request_id: str = "rid-123") -> MagicMock:
+    """Build a minimal Request stand-in suitable for log_access.
+
+    ``request_id`` is set as a real attribute on ``state`` (rather than
+    leaving MagicMock to auto-mock the lookup) so ``getattr(request.state,
+    "request_id", "")`` returns a string the DB can persist.
+    """
     req = MagicMock()
     req.method = method
     req.headers = {}
-    req.state.__dict__ = {}
+    req.state = MagicMock()
+    req.state.request_id = request_id
     req.client = MagicMock()
     req.client.host = "127.0.0.1"
     return req

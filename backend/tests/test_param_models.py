@@ -162,3 +162,22 @@ def test_build_param_model_rejects_corrupt_default() -> None:
     )
     with pytest.raises(ValidationError):
         Model.model_validate({})
+
+
+def test_build_param_model_optional_without_default_returns_none() -> None:
+    """An optional param with no configured default must accept the
+    missing value and produce ``None``. Regression for the interaction
+    between ``validate_default=True`` and a non-nullable annotation
+    (e.g. ``int``) where ``None`` would otherwise fail the type check."""
+    Model = build_param_model({"p": {"type": "integer", "required": False}})
+    instance = Model.model_validate({})
+    assert instance.model_dump()["p"] is None
+
+
+def test_build_param_model_optional_without_default_accepts_value() -> None:
+    """And when the param IS supplied, the optional widening to
+    ``T | None`` must still coerce correctly (no Optional-related
+    detour through string)."""
+    Model = build_param_model({"p": {"type": "integer", "required": False}})
+    instance = Model.model_validate({"p": "42"})
+    assert instance.model_dump()["p"] == 42

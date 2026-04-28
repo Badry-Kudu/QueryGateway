@@ -19,6 +19,7 @@ and the access-log context manager.
 from __future__ import annotations
 
 import base64
+import time
 import uuid
 from typing import Any
 
@@ -277,6 +278,10 @@ class DataService:
                 content={"detail": "Data source connection is unavailable."},
             )
 
+        # Time the executor call locally so the failure log can report
+        # duration_ms even when ``execute_query`` raises before returning
+        # its own measurement.
+        query_start = time.perf_counter()
         try:
             columns, rows, query_duration_ms = await execute_query(
                 connection=connection,
@@ -284,9 +289,13 @@ class DataService:
                 params=params,
             )
         except SqlExecutionError as exc:
-            request_id = str(
-                request.headers.get("X-Request-ID", "")
-                or request.state.__dict__.get("request_id", "")
+            duration_ms = round((time.perf_counter() - query_start) * 1000, 2)
+            # Header (caller-supplied) wins over the middleware-generated
+            # ID stored on ``request.state``. ``getattr`` (rather than
+            # ``__dict__.get``) is needed because Starlette's ``State``
+            # routes attribute access through ``__setattr__``/``__getattr__``.
+            request_id = request.headers.get("X-Request-ID") or getattr(
+                request.state, "request_id", ""
             )
             log.error(
                 "data_endpoint_query_failed",
@@ -297,6 +306,7 @@ class DataService:
                 request_id=request_id,
                 method=request.method,
                 client_ip=request.client.host if request.client else None,
+                duration_ms=duration_ms,
                 error=str(exc),
             )
             return JSONResponse(

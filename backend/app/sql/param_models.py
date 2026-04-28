@@ -87,6 +87,14 @@ def _build_field(descriptor: dict[str, Any]) -> tuple[type, Any]:
     elif required:
         field_default = ...
     else:
+        # Optional with no configured default: the field accepts a
+        # missing value by defaulting to None.  ``validate_default=True``
+        # would reject ``None`` as a default for a non-nullable
+        # annotation (``int``, ``date``, etc.), so widen the annotation
+        # to ``T | None`` here.  This path matches legacy behavior:
+        # ``_coerce_param`` skipped optional params entirely when they
+        # weren't supplied.
+        annotation = annotation | None  # type: ignore[assignment]
         field_default = None
 
     return annotation, field_default

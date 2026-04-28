@@ -56,6 +56,16 @@ class RequestLoggingMiddleware:
             user="anonymous",  # Updated by auth middleware in later phases.
         )
 
+        # Make the request_id reachable from FastAPI handlers via
+        # ``request.state.request_id``. structlog's contextvars work for
+        # log emission but route handlers that need to *propagate* the
+        # ID (e.g. the access-log writer's persisted ``request_id``
+        # column, or the data router's failure log) need a synchronous
+        # accessor on the Request object. Starlette materializes
+        # ``Request.state`` from ``scope["state"]``.
+        scope_state = scope.setdefault("state", {})
+        scope_state["request_id"] = request_id
+
         status_code: int = 0
 
         async def send_wrapper(message: Any) -> None:

@@ -102,9 +102,11 @@ async def log_access(
 async def _write(ctx: AccessLogContext, *, duration_ms: float) -> None:
     """Persist one row using a fresh session so the request's transaction
     state can never poison or be poisoned by the access log."""
-    request_id = str(
-        ctx.request.headers.get("X-Request-ID", "")
-        or ctx.request.state.__dict__.get("request_id", "")
+    # ``RequestLoggingMiddleware`` populates ``request.state.request_id``;
+    # accept ``X-Request-ID`` from the client too, in that order, so
+    # caller-supplied correlation IDs win when present.
+    request_id = ctx.request.headers.get("X-Request-ID") or getattr(
+        ctx.request.state, "request_id", ""
     )
     try:
         async with database.AsyncSessionLocal() as session:
