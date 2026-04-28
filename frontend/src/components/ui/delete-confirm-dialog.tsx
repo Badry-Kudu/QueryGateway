@@ -11,7 +11,9 @@ import {
 } from "@/components/ui/dialog";
 
 interface DeleteConfirmDialogProps {
-  /** ``null`` when closed; pass a target object to open. */
+  /** ``true`` to show the dialog; ``false`` to hide it. Most pages
+   * derive this from ``!!deleteTarget`` so the dialog opens whenever a
+   * resource is selected for deletion. */
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;

@@ -8,10 +8,15 @@
  * ~40 LOC of boilerplate per page, copy-pasted three times.
  *
  * This hook centralises the wiring. Callers pass in the API methods,
- * the React Query keys, and (optionally) extra ``onSuccess`` /
- * ``onError`` callbacks; the hook returns the query result, the three
- * mutations (already wired to invalidate the right keys and surface
- * errors), and the ``formError`` state.
+ * the React Query keys, and (optionally) per-mutation ``onSuccess``
+ * callbacks; the hook returns the query result, the three mutations
+ * (already wired to invalidate the right keys and surface errors via
+ * ``formError``), and the ``formError`` state itself.
+ *
+ * All three mutations write failures into ``formError``. There are no
+ * ``onError`` callback options — pages that want bespoke error
+ * handling should observe ``formError`` (or the ``mutation.error``
+ * fields directly).
  *
  * Special-case mutations (test-connection, issue-token, rotate, etc.)
  * stay in the page — this hook only handles the *standard* three.
@@ -85,6 +90,10 @@ export function useResourceMutations<T, Create, Update>(
       void qc.invalidateQueries({ queryKey: opts.invalidateKey });
       opts.onDeleteSuccess?.();
     },
+    // Surface delete failures the same way as create/update so users
+    // see actionable feedback. Without this the mutation silently
+    // swallowed errors.
+    onError: (err) => setFormError(getApiError(err)),
   });
 
   return {

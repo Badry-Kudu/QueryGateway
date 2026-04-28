@@ -171,7 +171,10 @@ export function AuthMethodsPage() {
           title="No auth methods yet"
           description="Create your first auth method to secure data endpoints."
           actionLabel="Create auth method"
-          onAction={() => setCreateOpen(true)}
+          onAction={() => {
+            setFormError(null);
+            setCreateOpen(true);
+          }}
         />
       ) : (
         <div className="overflow-hidden rounded-lg border">

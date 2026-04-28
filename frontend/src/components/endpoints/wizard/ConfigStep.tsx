@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { AuthMethod } from "@/types/auth_method";
 import type { DataStrategy } from "@/types/endpoint";
@@ -57,8 +58,8 @@ export function ConfigStep({ state, update, authMethods }: ConfigStepProps) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label>Authentication</Label>
-          <select
-            className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+          <Select
+            className="mt-1"
             value={state.auth_method_id}
             onChange={(e) => update({ auth_method_id: e.target.value })}
           >
@@ -68,18 +69,18 @@ export function ConfigStep({ state, update, authMethods }: ConfigStepProps) {
                 {a.name} ({a.method_type})
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
           <Label>Data Strategy</Label>
-          <select
-            className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
+          <Select
+            className="mt-1"
             value={state.data_strategy}
             onChange={(e) => update({ data_strategy: e.target.value as DataStrategy })}
           >
             <option value="live">Live (query on each request)</option>
             <option value="snapshot">Snapshot (cached, scheduled refresh)</option>
-          </select>
+          </Select>
         </div>
       </div>
     </div>

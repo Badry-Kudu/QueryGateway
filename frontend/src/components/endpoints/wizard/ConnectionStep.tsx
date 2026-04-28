@@ -25,6 +25,7 @@ export function ConnectionStep({ state, update, connections }: ConnectionStepPro
             <button
               key={c.id}
               onClick={() => update({ connection_id: c.id })}
+              aria-pressed={state.connection_id === c.id}
               className={`rounded-lg border p-3 text-left transition-colors ${
                 state.connection_id === c.id ? "border-primary bg-primary/5" : "hover:bg-muted"
               }`}

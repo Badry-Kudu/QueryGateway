@@ -63,15 +63,21 @@ export function EndpointWizard({ onSuccess, onCancel }: EndpointWizardProps) {
       setPreview(data);
       // Auto-populate param_schema from detected bind params, preserving
       // any descriptors the user already configured for the same names.
-      const newSchema: Record<string, ParamDescriptor> = {};
-      for (const p of data.bind_params) {
-        newSchema[p] = state.param_schema[p] ?? {
-          type: "string",
-          required: true,
-          default: null,
-        };
-      }
-      setState((s) => ({ ...s, param_schema: newSchema }));
+      // Read from the *current* state inside the updater rather than the
+      // closure-captured ``state`` — otherwise edits made while the
+      // preview request is in-flight get clobbered when the response
+      // lands.
+      setState((s) => {
+        const newSchema: Record<string, ParamDescriptor> = {};
+        for (const p of data.bind_params) {
+          newSchema[p] = s.param_schema[p] ?? {
+            type: "string",
+            required: true,
+            default: null,
+          };
+        }
+        return { ...s, param_schema: newSchema };
+      });
       setError("");
     },
     onError: (err) => setError(getApiError(err)),

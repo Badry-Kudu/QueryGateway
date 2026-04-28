@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import type { ParamDescriptor } from "@/types/endpoint";
 
 import type { WizardState } from "./types";
@@ -30,8 +31,8 @@ export function ParamsStep({ state, onUpdateParam }: ParamsStepProps) {
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <Label className="text-xs">Type</Label>
-                  <select
-                    className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                  <Select
+                    className="mt-1 h-8 px-2 py-1.5"
                     value={desc.type}
                     onChange={(e) => onUpdateParam(name, "type", e.target.value)}
                   >
@@ -40,18 +41,18 @@ export function ParamsStep({ state, onUpdateParam }: ParamsStepProps) {
                     <option value="float">Float</option>
                     <option value="boolean">Boolean</option>
                     <option value="date">Date</option>
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <Label className="text-xs">Required</Label>
-                  <select
-                    className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                  <Select
+                    className="mt-1 h-8 px-2 py-1.5"
                     value={desc.required ? "true" : "false"}
                     onChange={(e) => onUpdateParam(name, "required", e.target.value === "true")}
                   >
                     <option value="true">Yes</option>
                     <option value="false">No</option>
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <Label className="text-xs">Default</Label>

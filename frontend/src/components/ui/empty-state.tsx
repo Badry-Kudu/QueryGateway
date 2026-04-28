@@ -2,12 +2,21 @@ import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
-interface EmptyStateProps {
-  title: string;
-  description: string;
-  actionLabel?: string;
-  onAction?: () => void;
-}
+// Discriminated union so TypeScript rejects callers that supply only
+// one of ``actionLabel`` / ``onAction``. Either both or neither.
+type EmptyStateProps =
+  | {
+      title: string;
+      description: string;
+      actionLabel: string;
+      onAction: () => void;
+    }
+  | {
+      title: string;
+      description: string;
+      actionLabel?: undefined;
+      onAction?: undefined;
+    };
 
 /**
  * Dashed-border placeholder used by every list page when the resource

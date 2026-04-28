@@ -24,7 +24,7 @@ export function ReviewStep({ state, connections, authMethods }: ReviewStepProps)
           <span className="text-muted-foreground">Auth:</span>
           <span>
             {state.auth_method_id
-              ? authMethods.find((a) => a.id === state.auth_method_id)?.name
+              ? (authMethods.find((a) => a.id === state.auth_method_id)?.name ?? "—")
               : "None (public)"}
           </span>
           <span className="text-muted-foreground">Strategy:</span>

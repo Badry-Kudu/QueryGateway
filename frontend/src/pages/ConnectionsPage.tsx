@@ -119,7 +119,10 @@ export function ConnectionsPage() {
           title="No connections yet"
           description="Create your first Oracle connection to get started."
           actionLabel="Create connection"
-          onAction={() => setCreateOpen(true)}
+          onAction={() => {
+            setFormError(null);
+            setCreateOpen(true);
+          }}
         />
       ) : (
         <div className="overflow-hidden rounded-lg border">
