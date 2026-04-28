@@ -10,6 +10,75 @@ interface ParamsStepProps {
   onUpdateParam: (name: string, field: keyof ParamDescriptor, value: unknown) => void;
 }
 
+interface DefaultValueControlProps {
+  desc: ParamDescriptor;
+  name: string;
+  onUpdateParam: (name: string, field: keyof ParamDescriptor, value: unknown) => void;
+}
+
+function DefaultValueControl({ desc, name, onUpdateParam }: DefaultValueControlProps) {
+  switch (desc.type) {
+    case "boolean":
+      return (
+        <div className="mt-1 flex h-8 items-center">
+          <input
+            type="checkbox"
+            id={`default-${name}`}
+            className="h-4 w-4 rounded border-input"
+            checked={desc.default === true}
+            onChange={(e) => onUpdateParam(name, "default", e.target.checked ? true : null)}
+          />
+        </div>
+      );
+    case "integer":
+      return (
+        <Input
+          className="mt-1 h-8 text-sm"
+          type="number"
+          value={desc.default != null ? String(desc.default) : ""}
+          onChange={(e) => {
+            const parsed = parseInt(e.target.value, 10);
+            onUpdateParam(name, "default", e.target.value && !isNaN(parsed) ? parsed : null);
+          }}
+          placeholder="(none)"
+        />
+      );
+    case "float":
+      return (
+        <Input
+          className="mt-1 h-8 text-sm"
+          type="number"
+          step="any"
+          value={desc.default != null ? String(desc.default) : ""}
+          onChange={(e) => {
+            const parsed = parseFloat(e.target.value);
+            onUpdateParam(name, "default", e.target.value && !isNaN(parsed) ? parsed : null);
+          }}
+          placeholder="(none)"
+        />
+      );
+    case "date":
+      return (
+        <Input
+          className="mt-1 h-8 text-sm"
+          type="date"
+          value={desc.default != null ? String(desc.default) : ""}
+          onChange={(e) => onUpdateParam(name, "default", e.target.value || null)}
+          placeholder="(none)"
+        />
+      );
+    default:
+      return (
+        <Input
+          className="mt-1 h-8 text-sm"
+          value={String(desc.default ?? "")}
+          onChange={(e) => onUpdateParam(name, "default", e.target.value || null)}
+          placeholder="(none)"
+        />
+      );
+  }
+}
+
 export function ParamsStep({ state, onUpdateParam }: ParamsStepProps) {
   const entries = Object.entries(state.param_schema);
 
@@ -56,12 +125,7 @@ export function ParamsStep({ state, onUpdateParam }: ParamsStepProps) {
                 </div>
                 <div>
                   <Label className="text-xs">Default</Label>
-                  <Input
-                    className="mt-1 h-8 text-sm"
-                    value={String(desc.default ?? "")}
-                    onChange={(e) => onUpdateParam(name, "default", e.target.value || null)}
-                    placeholder="(none)"
-                  />
+                  <DefaultValueControl desc={desc} name={name} onUpdateParam={onUpdateParam} />
                 </div>
               </div>
             </div>
