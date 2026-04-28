@@ -71,4 +71,17 @@ describe("DeleteConfirmDialog", () => {
     });
     expect(screen.getByTestId("resource-name")).toHaveTextContent("db-prod");
   });
+
+  it("renders nothing when error is omitted", () => {
+    renderDialog();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("surfaces a server-side error via role=alert", () => {
+    renderDialog({
+      error: "409 Conflict: connection is referenced by 3 endpoints.",
+    });
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("409 Conflict: connection is referenced by 3 endpoints.");
+  });
 });

@@ -25,6 +25,14 @@ interface DeleteConfirmDialogProps {
   description: ReactNode;
   isDeleting: boolean;
   onConfirm: () => void;
+  /**
+   * Server-side error message rendered inside the dialog. Pages
+   * typically wire this from their ``formError`` state so a failed
+   * delete (FK constraint violation, missing perms, etc.) surfaces
+   * in the active confirmation flow rather than silently leaving
+   * the resource present.
+   */
+  error?: string | null;
 }
 
 /**
@@ -39,6 +47,7 @@ export function DeleteConfirmDialog({
   description,
   isDeleting,
   onConfirm,
+  error,
 }: DeleteConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -47,6 +56,11 @@ export function DeleteConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

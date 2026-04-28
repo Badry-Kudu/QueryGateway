@@ -261,7 +261,10 @@ export function AuthMethodsPage() {
                         variant="ghost"
                         size="icon"
                         title="Delete"
-                        onClick={() => setDeleteTarget(m)}
+                        onClick={() => {
+                          setFormError(null);
+                          setDeleteTarget(m);
+                        }}
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -318,7 +321,14 @@ export function AuthMethodsPage() {
 
       <DeleteConfirmDialog
         open={!!deleteTarget}
-        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDeleteTarget(null);
+            // Clear stale failure messages so the next attempt starts
+            // clean.
+            setFormError(null);
+          }
+        }}
         title="Delete auth method?"
         description={
           <>
@@ -327,6 +337,7 @@ export function AuthMethodsPage() {
           </>
         }
         isDeleting={deleteMut.isPending}
+        error={formError}
         onConfirm={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
       />
 

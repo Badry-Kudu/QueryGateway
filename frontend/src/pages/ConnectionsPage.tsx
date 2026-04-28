@@ -187,7 +187,10 @@ export function ConnectionsPage() {
                         variant="ghost"
                         size="icon"
                         title="Delete"
-                        onClick={() => setDeleteTarget(conn)}
+                        onClick={() => {
+                          setFormError(null);
+                          setDeleteTarget(conn);
+                        }}
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -244,7 +247,14 @@ export function ConnectionsPage() {
 
       <DeleteConfirmDialog
         open={!!deleteTarget}
-        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDeleteTarget(null);
+            // Clear stale failure messages when dismissing the dialog
+            // so the next delete attempt starts clean.
+            setFormError(null);
+          }
+        }}
         title="Delete connection?"
         description={
           <>
@@ -253,6 +263,7 @@ export function ConnectionsPage() {
           </>
         }
         isDeleting={deleteMut.isPending}
+        error={formError}
         onConfirm={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
       />
 
