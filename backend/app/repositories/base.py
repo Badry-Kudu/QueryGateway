@@ -83,6 +83,15 @@ class BaseCrudRepository(Generic[ModelT]):
 
     async def update(self, obj: ModelT, changes: dict[str, object]) -> ModelT:
         for field, value in changes.items():
+            # Reject unknown attributes (typos in service code silently
+            # attach to the Python object without persisting) and the
+            # primary key (mutating ``id`` corrupts foreign-key
+            # references). Cheap guard on a base class that all CRUD
+            # repos share.
+            if field == "id" or not hasattr(self.model, field):
+                raise ValueError(
+                    f"Invalid or immutable field for update: {field!r}"
+                )
             setattr(obj, field, value)
         await self._db.flush()
         await self._db.refresh(obj)

@@ -29,7 +29,11 @@ log = structlog.get_logger()
 # namespaced IDs like ``svc:abc.123`` while excluding control characters,
 # whitespace, ANSI escape sequences, and anything else that could poison
 # a log line or be reflected back in the X-Request-ID response header.
-_REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+#
+# Length cap (64) matches ``access_logs.request_id`` (``String(64)``).
+# A larger limit lets values pass middleware validation only to crash
+# on insert with a Postgres ``value too long`` error.
+_REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
 
 
 def _is_safe_request_id(value: object) -> bool:

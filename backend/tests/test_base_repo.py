@@ -57,6 +57,24 @@ async def test_update_applies_changes_dict(db_session: AsyncSession) -> None:
     assert fetched.description == "new"
 
 
+async def test_update_rejects_unknown_field(db_session: AsyncSession) -> None:
+    """A typo in service code (``{"descirption": "x"}``) silently
+    no-ops in SQLAlchemy — attribute attaches to the Python object
+    but never reaches the database. Guard against that."""
+    repo = ConnectionRepository(db_session)
+    obj = await repo.create(_make_connection("update-bad-1"))
+    with pytest.raises(ValueError, match="Invalid or immutable field"):
+        await repo.update(obj, {"nonexistent_field": "x"})
+
+
+async def test_update_rejects_id_mutation(db_session: AsyncSession) -> None:
+    """Mutating the primary key would orphan foreign-key references."""
+    repo = ConnectionRepository(db_session)
+    obj = await repo.create(_make_connection("update-bad-2"))
+    with pytest.raises(ValueError, match="Invalid or immutable field"):
+        await repo.update(obj, {"id": uuid.uuid4()})
+
+
 async def test_delete_removes_row(db_session: AsyncSession) -> None:
     repo = ConnectionRepository(db_session)
     obj = await repo.create(_make_connection("delete-1"))
