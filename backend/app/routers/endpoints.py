@@ -67,8 +67,8 @@ async def list_endpoints(
 async def create_endpoint(
     payload: EndpointCreate,
     db: AsyncSession = Depends(get_db),
+    svc: EndpointService = Depends(_service),
 ) -> EndpointResponse:
-    svc = EndpointService(EndpointRepository(db), ConnectionRepository(db))
     try:
         result = await svc.create_endpoint(payload)
     except ValueError as exc:
@@ -105,8 +105,8 @@ async def update_endpoint(
     endpoint_id: uuid.UUID,
     payload: EndpointUpdate,
     db: AsyncSession = Depends(get_db),
+    svc: EndpointService = Depends(_service),
 ) -> EndpointResponse:
-    svc = EndpointService(EndpointRepository(db), ConnectionRepository(db))
     try:
         result = await svc.update_endpoint(endpoint_id, payload)
     except ValueError as exc:
@@ -129,8 +129,8 @@ async def update_endpoint(
 async def delete_endpoint(
     endpoint_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    svc: EndpointService = Depends(_service),
 ) -> None:
-    svc = EndpointService(EndpointRepository(db))
     deleted = await svc.delete_endpoint(endpoint_id)
     if not deleted:
         raise HTTPException(
@@ -150,9 +150,8 @@ async def delete_endpoint(
 )
 async def preview_sql(
     payload: SqlPreviewRequest,
-    db: AsyncSession = Depends(get_db),
+    svc: EndpointService = Depends(_service),
 ) -> SqlPreviewResponse:
-    svc = EndpointService(EndpointRepository(db), ConnectionRepository(db))
     try:
         return await svc.preview_sql(payload)
     except ValueError as exc:

@@ -65,8 +65,8 @@ async def list_auth_methods(
 async def create_auth_method(
     payload: AuthMethodCreate,
     db: AsyncSession = Depends(get_db),
+    svc: AuthMethodService = Depends(_service),
 ) -> AuthMethodResponse:
-    svc = AuthMethodService(AuthMethodRepository(db))
     try:
         response, _key = await svc.create_auth_method(payload)
     except ValueError as exc:
@@ -89,6 +89,7 @@ async def create_auth_method(
 async def create_api_key_method(
     payload: AuthMethodCreate,
     db: AsyncSession = Depends(get_db),
+    svc: AuthMethodService = Depends(_service),
 ) -> ApiKeyIssuedResponse:
     from app.models.auth_method import AuthMethodType  # noqa: PLC0415
 
@@ -97,7 +98,6 @@ async def create_api_key_method(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="This endpoint is for api_key method type only.",
         )
-    svc = AuthMethodService(AuthMethodRepository(db))
     try:
         _, key_response = await svc.create_auth_method(payload)
     except ValueError as exc:
@@ -135,8 +135,8 @@ async def update_auth_method(
     auth_id: uuid.UUID,
     payload: AuthMethodUpdate,
     db: AsyncSession = Depends(get_db),
+    svc: AuthMethodService = Depends(_service),
 ) -> AuthMethodResponse:
-    svc = AuthMethodService(AuthMethodRepository(db))
     try:
         result = await svc.update_auth_method(auth_id, payload)
     except ValueError as exc:
@@ -155,8 +155,8 @@ async def update_auth_method(
 async def delete_auth_method(
     auth_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    svc: AuthMethodService = Depends(_service),
 ) -> None:
-    svc = AuthMethodService(AuthMethodRepository(db))
     deleted = await svc.delete_auth_method(auth_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Auth method not found.")
@@ -196,8 +196,8 @@ async def issue_token(
 async def rotate_credentials(
     auth_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    svc: AuthMethodService = Depends(_service),
 ) -> RotateResponse | ApiKeyIssuedResponse:
-    svc = AuthMethodService(AuthMethodRepository(db))
     try:
         rotate_resp, key_resp = await svc.rotate_credentials(auth_id)
     except ValueError as exc:
