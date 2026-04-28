@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
 import { AuthMethodForm } from "@/components/auth/AuthMethodForm";
 import { authMethodsApi, getApiError } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
@@ -165,13 +167,12 @@ export function AuthMethodsPage() {
           Loading auth methods…
         </div>
       ) : methods.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed text-muted-foreground">
-          <p className="font-medium">No auth methods yet</p>
-          <p className="text-sm">Create your first auth method to secure data endpoints.</p>
-          <Button variant="outline" size="sm" className="mt-2" onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" /> Create auth method
-          </Button>
-        </div>
+        <EmptyState
+          title="No auth methods yet"
+          description="Create your first auth method to secure data endpoints."
+          actionLabel="Create auth method"
+          onAction={() => setCreateOpen(true)}
+        />
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <table className="w-full text-sm">
@@ -311,30 +312,19 @@ export function AuthMethodsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete dialog ────────────────────────────────────────────────── */}
-      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete auth method?</DialogTitle>
-            <DialogDescription>
-              This will permanently delete <strong>{deleteTarget?.name}</strong>. Any endpoints
-              using this auth method will reject requests.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={deleteMut.isPending}
-              onClick={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
-            >
-              {deleteMut.isPending ? "Deleting…" : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title="Delete auth method?"
+        description={
+          <>
+            This will permanently delete <strong>{deleteTarget?.name}</strong>. Any endpoints using
+            this auth method will reject requests.
+          </>
+        }
+        isDeleting={deleteMut.isPending}
+        onConfirm={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
+      />
 
       {/* ── Issue token result dialog ────────────────────────────────────── */}
       <Dialog open={!!tokenResult} onOpenChange={(o) => !o && setTokenResult(null)}>
