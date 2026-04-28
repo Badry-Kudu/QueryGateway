@@ -82,6 +82,27 @@ async def test_log_access_preserves_caller_set_status_on_unhandled_exception(
     assert rows[0].status_code == 418
 
 
+async def test_log_access_uses_header_request_id_over_state(
+    db_session: AsyncSession,
+) -> None:
+    """An incoming ``X-Request-ID`` header must override the ID the
+    middleware put on ``request.state``. Caller-supplied correlation IDs
+    are how external systems trace a request across service boundaries,
+    so they take precedence over the server-generated fallback."""
+    request = _fake_request(request_id="rid-state")
+    request.headers = {"X-Request-ID": "rid-header"}
+
+    async with log_access(request, path="/api/v1/data/rid-precedence") as ctx:
+        ctx.set_status(200)
+
+    row = (
+        await db_session.execute(
+            select(AccessLog).where(AccessLog.path == "/api/v1/data/rid-precedence"),
+        )
+    ).scalars().one()
+    assert row.request_id == "rid-header"
+
+
 async def test_log_access_persists_when_block_raises_http_exception(
     db_session: AsyncSession,
 ) -> None:

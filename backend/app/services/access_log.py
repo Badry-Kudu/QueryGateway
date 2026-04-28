@@ -104,9 +104,13 @@ async def _write(ctx: AccessLogContext, *, duration_ms: float) -> None:
     state can never poison or be poisoned by the access log."""
     # ``RequestLoggingMiddleware`` populates ``request.state.request_id``;
     # accept ``X-Request-ID`` from the client too, in that order, so
-    # caller-supplied correlation IDs win when present.
-    request_id = ctx.request.headers.get("X-Request-ID") or getattr(
-        ctx.request.state, "request_id", ""
+    # caller-supplied correlation IDs win when present.  A final UUID
+    # fallback keeps the ``request_id`` column non-empty when the
+    # middleware is bypassed (e.g. tests that mount the app directly).
+    request_id = (
+        ctx.request.headers.get("X-Request-ID")
+        or getattr(ctx.request.state, "request_id", "")
+        or str(uuid.uuid4())
     )
     try:
         async with database.AsyncSessionLocal() as session:

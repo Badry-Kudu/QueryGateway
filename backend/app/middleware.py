@@ -46,6 +46,10 @@ class RequestLoggingMiddleware:
 
         path: str = scope.get("path", "")
         method: str = scope.get("method", "")
+        client = scope.get("client")
+        client_ip: str | None = (
+            str(client[0]) if isinstance(client, tuple) and len(client) > 0 else None
+        )
 
         # Establish per-request log context visible to all downstream loggers.
         structlog.contextvars.clear_contextvars()
@@ -53,6 +57,7 @@ class RequestLoggingMiddleware:
             request_id=request_id,
             endpoint=path,
             method=method,
+            client_ip=client_ip,
             user="anonymous",  # Updated by auth middleware in later phases.
         )
 
@@ -91,5 +96,12 @@ class RequestLoggingMiddleware:
             )
         except Exception:
             duration_ms = round((time.perf_counter() - start) * 1000, 2)
-            log.exception("request_failed", duration_ms=duration_ms)
+            # ``status_code`` may still be 0 if the failure happened
+            # before the response started; default to 500 so the
+            # mandatory structured-log field set is always populated.
+            log.exception(
+                "request_failed",
+                status=status_code or 500,
+                duration_ms=duration_ms,
+            )
             raise

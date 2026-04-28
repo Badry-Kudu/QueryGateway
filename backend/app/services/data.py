@@ -294,8 +294,13 @@ class DataService:
             # ID stored on ``request.state``. ``getattr`` (rather than
             # ``__dict__.get``) is needed because Starlette's ``State``
             # routes attribute access through ``__setattr__``/``__getattr__``.
-            request_id = request.headers.get("X-Request-ID") or getattr(
-                request.state, "request_id", ""
+            # Final fallback to a fresh UUID guarantees logs always carry
+            # a non-empty correlation ID, even if the middleware was
+            # bypassed (e.g. test harnesses that mount the app directly).
+            request_id = (
+                request.headers.get("X-Request-ID")
+                or getattr(request.state, "request_id", "")
+                or str(uuid.uuid4())
             )
             log.error(
                 "data_endpoint_query_failed",
