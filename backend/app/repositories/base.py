@@ -24,7 +24,7 @@ from __future__ import annotations
 import uuid
 from typing import ClassVar, Generic, TypeVar
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.base import Base
@@ -82,16 +82,19 @@ class BaseCrudRepository(Generic[ModelT]):
         return obj
 
     async def update(self, obj: ModelT, changes: dict[str, object]) -> ModelT:
+        # Validate the entire payload up-front so the operation is
+        # all-or-nothing. ``hasattr(self.model, field)`` was too broad —
+        # ``__tablename__`` and other class attrs would pass — so use
+        # the SQLAlchemy mapper's column attrs instead. The primary key
+        # is excluded explicitly: mutating ``id`` would orphan all
+        # foreign-key references that point at the old row.
+        allowed = {a.key for a in inspect(self.model).column_attrs if a.key != "id"}
+        invalid = [f for f in changes if f not in allowed]
+        if invalid:
+            raise ValueError(
+                f"Invalid or immutable field for update: {invalid[0]!r}"
+            )
         for field, value in changes.items():
-            # Reject unknown attributes (typos in service code silently
-            # attach to the Python object without persisting) and the
-            # primary key (mutating ``id`` corrupts foreign-key
-            # references). Cheap guard on a base class that all CRUD
-            # repos share.
-            if field == "id" or not hasattr(self.model, field):
-                raise ValueError(
-                    f"Invalid or immutable field for update: {field!r}"
-                )
             setattr(obj, field, value)
         await self._db.flush()
         await self._db.refresh(obj)

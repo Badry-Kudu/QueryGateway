@@ -75,6 +75,29 @@ async def test_update_rejects_id_mutation(db_session: AsyncSession) -> None:
         await repo.update(obj, {"id": uuid.uuid4()})
 
 
+async def test_update_rejects_mixed_payload_atomically(
+    db_session: AsyncSession,
+) -> None:
+    """A mixed valid/invalid payload must fail before any mutation
+    lands. The previous implementation iterated and called ``setattr``
+    as it validated, so an earlier valid key would dirty the object
+    even when a later key raised — leaving a half-applied change that
+    SQLAlchemy could still flush on session commit."""
+    repo = ConnectionRepository(db_session)
+    obj = await repo.create(_make_connection("update-bad-3"))
+    assert obj.description is None
+
+    with pytest.raises(ValueError, match="Invalid or immutable field"):
+        await repo.update(obj, {"description": "new", "id": uuid.uuid4()})
+
+    # In-memory state untouched.
+    assert obj.description is None
+    # Refetch confirms the DB row never saw the partial change either.
+    fetched = await repo.get_by_id(obj.id)
+    assert fetched is not None
+    assert fetched.description is None
+
+
 async def test_delete_removes_row(db_session: AsyncSession) -> None:
     repo = ConnectionRepository(db_session)
     obj = await repo.create(_make_connection("delete-1"))
