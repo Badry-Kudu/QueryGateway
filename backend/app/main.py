@@ -42,6 +42,38 @@ from app.services.scheduler import start_scheduler, stop_scheduler
 log = structlog.get_logger()
 
 
+def _init_oracle_client() -> None:
+    """Initialize the Oracle thick-mode client once at startup.
+
+    Previously ``oracledb.init_oracle_client`` was called per-request from
+    ``_execute_sync`` whenever a thick-mode connection ran a query, which
+    is both wasteful and unsafe (the function is intended to be called
+    exactly once per process). Lifting it here keeps thin-mode users
+    free of the dependency entirely while still supporting thick-mode
+    deployments that need the Instant Client.
+    """
+    if not settings.oracle_client_lib_dir:
+        return
+    try:
+        import oracledb  # noqa: PLC0415
+
+        oracledb.init_oracle_client(lib_dir=settings.oracle_client_lib_dir)
+        log.info(
+            "oracle_client_initialized",
+            lib_dir=settings.oracle_client_lib_dir,
+        )
+    except Exception as exc:  # noqa: BLE001
+        # Don't crash the whole app on Oracle bootstrap failures —
+        # connections will surface a clearer error on first use.
+        # ``error_type`` lets operators correlate this warning with the
+        # downstream "Query execution failed: ..." raised by the executor.
+        log.warning(
+            "oracle_client_init_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application startup / shutdown lifecycle."""
@@ -51,6 +83,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         env=settings.app_env,
         debug=settings.debug,
     )
+    _init_oracle_client()
     start_scheduler()
     yield
     stop_scheduler()
