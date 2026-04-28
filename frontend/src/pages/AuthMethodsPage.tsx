@@ -94,6 +94,7 @@ export function AuthMethodsPage() {
       void qc.invalidateQueries({ queryKey: queryKeys.authMethods.all });
       setDeleteTarget(null);
     },
+    onError: (err) => setFormError(getApiError(err)),
   });
 
   const issueTokenMut = useMutation({
