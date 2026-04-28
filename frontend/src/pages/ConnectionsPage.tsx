@@ -1,10 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, Pencil, Plus, RefreshCw, Trash2, XCircle, Zap } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -13,9 +14,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ConnectionForm } from "@/components/connections/ConnectionForm";
 import { connectionsApi, getApiError } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
+import { useResourceMutations } from "@/lib/useResourceMutations";
 import type {
   Connection,
   ConnectionCreate,
@@ -24,56 +27,23 @@ import type {
 } from "@/types/connection";
 
 export function ConnectionsPage() {
-  const qc = useQueryClient();
-
-  // ── State ────────────────────────────────────────────────────────────────
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Connection | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Connection | null>(null);
   const [testTarget, setTestTarget] = useState<Connection | null>(null);
   const [testResult, setTestResult] = useState<ConnectionTestResult | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
 
-  // ── Queries ──────────────────────────────────────────────────────────────
-  const {
-    data: connections = [],
-    isLoading,
-    isError,
-    error: listError,
-    refetch,
-  } = useQuery({
-    queryKey: queryKeys.connections.list(false),
-    queryFn: () => connectionsApi.list(false),
-  });
-
-  // ── Mutations ────────────────────────────────────────────────────────────
-  const createMut = useMutation({
-    mutationFn: (payload: ConnectionCreate) => connectionsApi.create(payload),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.connections.all });
-      setCreateOpen(false);
-      setFormError(null);
-    },
-    onError: (err) => setFormError(getApiError(err)),
-  });
-
-  const updateMut = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: ConnectionUpdate }) =>
-      connectionsApi.update(id, payload),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.connections.all });
-      setEditTarget(null);
-      setFormError(null);
-    },
-    onError: (err) => setFormError(getApiError(err)),
-  });
-
-  const deleteMut = useMutation({
-    mutationFn: (id: string) => connectionsApi.delete(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.connections.all });
-      setDeleteTarget(null);
-    },
+  const { list, createMut, updateMut, deleteMut, formError, setFormError } = useResourceMutations<
+    Connection,
+    ConnectionCreate,
+    ConnectionUpdate
+  >({
+    api: connectionsApi,
+    invalidateKey: queryKeys.connections.all,
+    listKey: queryKeys.connections.list(false),
+    onCreateSuccess: () => setCreateOpen(false),
+    onUpdateSuccess: () => setEditTarget(null),
+    onDeleteSuccess: () => setDeleteTarget(null),
   });
 
   const testMut = useMutation({
@@ -88,7 +58,6 @@ export function ConnectionsPage() {
       }),
   });
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
   function handleCreate(data: ConnectionCreate | ConnectionUpdate) {
     setFormError(null);
     createMut.mutate(data as ConnectionCreate);
@@ -106,7 +75,8 @@ export function ConnectionsPage() {
     testMut.mutate(conn.id);
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  const connections = list.data ?? [];
+
   return (
     <div className="mx-auto max-w-6xl p-6">
       {/* Header */}
@@ -118,7 +88,7 @@ export function ConnectionsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => refetch()} title="Refresh">
+          <Button variant="outline" size="icon" onClick={() => list.refetch()} title="Refresh">
             <RefreshCw className="h-4 w-4" />
           </Button>
           <Button
@@ -133,27 +103,27 @@ export function ConnectionsPage() {
         </div>
       </div>
 
-      {/* Error state */}
-      {isError && (
+      {list.isError && (
         <Alert variant="destructive" className="mb-4">
           <AlertTitle>Failed to load connections</AlertTitle>
-          <AlertDescription>{getApiError(listError)}</AlertDescription>
+          <AlertDescription>{getApiError(list.error)}</AlertDescription>
         </Alert>
       )}
 
-      {/* Table */}
-      {isLoading ? (
+      {list.isLoading ? (
         <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
           Loading connections…
         </div>
       ) : connections.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed text-muted-foreground">
-          <p className="font-medium">No connections yet</p>
-          <p className="text-sm">Create your first Oracle connection to get started.</p>
-          <Button variant="outline" size="sm" className="mt-2" onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" /> Create connection
-          </Button>
-        </div>
+        <EmptyState
+          title="No connections yet"
+          description="Create your first Oracle connection to get started."
+          actionLabel="Create connection"
+          onAction={() => {
+            setFormError(null);
+            setCreateOpen(true);
+          }}
+        />
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <table className="w-full text-sm">
@@ -217,7 +187,10 @@ export function ConnectionsPage() {
                         variant="ghost"
                         size="icon"
                         title="Delete"
-                        onClick={() => setDeleteTarget(conn)}
+                        onClick={() => {
+                          setFormError(null);
+                          setDeleteTarget(conn);
+                        }}
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -272,30 +245,27 @@ export function ConnectionsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete confirmation dialog ────────────────────────────────── */}
-      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete connection?</DialogTitle>
-            <DialogDescription>
-              This will permanently delete <strong>{deleteTarget?.name}</strong>. Any endpoints
-              using this connection will stop working.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={deleteMut.isPending}
-              onClick={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
-            >
-              {deleteMut.isPending ? "Deleting…" : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDeleteTarget(null);
+            // Clear stale failure messages when dismissing the dialog
+            // so the next delete attempt starts clean.
+            setFormError(null);
+          }
+        }}
+        title="Delete connection?"
+        description={
+          <>
+            This will permanently delete <strong>{deleteTarget?.name}</strong>. Any endpoints using
+            this connection will stop working.
+          </>
+        }
+        isDeleting={deleteMut.isPending}
+        error={formError}
+        onConfirm={() => deleteTarget && deleteMut.mutate(deleteTarget.id)}
+      />
 
       {/* ── Test result dialog ────────────────────────────────────────── */}
       <Dialog
