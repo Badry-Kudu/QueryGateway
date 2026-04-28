@@ -14,6 +14,7 @@ coroutine/task as the caller.  BaseHTTPMiddleware wraps call_next in a
 new asyncio Task, which breaks asyncpg connections that are task-bound.
 """
 
+import re
 import time
 import uuid
 from typing import Any
@@ -23,15 +24,31 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 log = structlog.get_logger()
 
+# Allow-list for caller-supplied X-Request-ID values.  Permits the chars
+# used by UUIDs (``-``), ULIDs (alnum), W3C trace IDs (hex), and
+# namespaced IDs like ``svc:abc.123`` while excluding control characters,
+# whitespace, ANSI escape sequences, and anything else that could poison
+# a log line or be reflected back in the X-Request-ID response header.
+_REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+
+
+def _is_safe_request_id(value: object) -> bool:
+    return isinstance(value, str) and bool(_REQUEST_ID_RE.match(value))
+
 
 def resolve_request_id(request: Any) -> str:
-    """Return a non-empty correlation ID for ``request``.
+    """Return a non-empty, sanitized correlation ID for ``request``.
 
     Resolution order (caller-supplied wins so external systems can trace
     requests across service boundaries):
 
-    1. ``X-Request-ID`` header on the inbound request.
-    2. ``request.state.request_id`` populated by ``RequestLoggingMiddleware``.
+    1. ``X-Request-ID`` header on the inbound request — but only if it
+       passes the allow-list validation. Untrusted input is otherwise
+       reflected into log lines, the persisted ``access_logs.request_id``
+       column, and the response header.
+    2. ``request.state.request_id`` populated by
+       ``RequestLoggingMiddleware`` (also validated, in case it was set
+       from elsewhere).
     3. A freshly minted UUID — guarantees logs and audit rows always
        carry a usable ID even if the middleware was bypassed (test
        harnesses that mount the app directly, or future deployments
@@ -42,11 +59,15 @@ def resolve_request_id(request: Any) -> str:
     ``__setattr__``/``__getattr__``, so attributes never appear in
     ``__dict__``.
     """
-    return (
-        request.headers.get("X-Request-ID")
-        or getattr(request.state, "request_id", "")
-        or str(uuid.uuid4())
-    )
+    header = request.headers.get("X-Request-ID")
+    if _is_safe_request_id(header):
+        return header  # type: ignore[no-any-return]
+
+    state_id = getattr(request.state, "request_id", "")
+    if _is_safe_request_id(state_id):
+        return state_id
+
+    return str(uuid.uuid4())
 
 
 class RequestLoggingMiddleware:
