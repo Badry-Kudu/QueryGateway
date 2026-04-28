@@ -130,4 +130,6 @@ async def _write(ctx: AccessLogContext, *, duration_ms: float) -> None:
             endpoint=ctx.path,
             status=ctx.status_code,
             duration_ms=round(duration_ms, 2),
+            method=ctx.request.method,
+            client_ip=ctx.request.client.host if ctx.request.client else None,
         )

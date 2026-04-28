@@ -149,3 +149,16 @@ def test_build_param_model_default_applies_when_required_and_missing() -> None:
     )
     instance = Model.model_validate({})
     assert instance.model_dump()["p"] == 42
+
+
+def test_build_param_model_rejects_corrupt_default() -> None:
+    """A stored descriptor whose ``default`` is incompatible with its
+    ``type`` must raise at model-construction (or first validation) so a
+    bad config can't slip through and hit the SQL layer as an invalid
+    bind parameter. ``ConfigDict(validate_default=True)`` is what makes
+    this fire."""
+    Model = build_param_model(
+        {"p": {"type": "integer", "required": False, "default": "abc"}},
+    )
+    with pytest.raises(ValidationError):
+        Model.model_validate({})

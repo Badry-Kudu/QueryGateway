@@ -284,13 +284,19 @@ class DataService:
                 params=params,
             )
         except SqlExecutionError as exc:
+            request_id = str(
+                request.headers.get("X-Request-ID", "")
+                or request.state.__dict__.get("request_id", "")
+            )
             log.error(
                 "data_endpoint_query_failed",
                 endpoint_id=str(endpoint.id),
                 endpoint=path,
                 user=principal or "anonymous",
                 status=500,
-                request_id=request.headers.get("X-Request-ID", ""),
+                request_id=request_id,
+                method=request.method,
+                client_ip=request.client.host if request.client else None,
                 error=str(exc),
             )
             return JSONResponse(

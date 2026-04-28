@@ -117,7 +117,12 @@ def build_param_model(param_schema: dict[str, Any]) -> type[BaseModel]:
 
     model = create_model(
         "EndpointParams",
-        __config__=ConfigDict(extra="ignore"),
+        # ``validate_default=True`` makes Pydantic coerce/validate the
+        # ``default`` we feed each field. Without it, a corrupted stored
+        # descriptor (e.g. ``{"type": "integer", "default": "abc"}``)
+        # would silently bypass validation and surface as an invalid
+        # bind parameter at SQL execution time.
+        __config__=ConfigDict(extra="ignore", validate_default=True),
         **fields,  # type: ignore[call-overload]
     )
     return model
