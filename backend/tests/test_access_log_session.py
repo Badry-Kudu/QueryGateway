@@ -103,6 +103,29 @@ async def test_log_access_uses_header_request_id_over_state(
     assert row.request_id == "rid-header"
 
 
+async def test_log_access_rejects_unsafe_header_request_id(
+    db_session: AsyncSession,
+) -> None:
+    """A malicious ``X-Request-ID`` (newlines, spaces, oversize) must
+    not be reflected into the audit log. ``resolve_request_id`` should
+    reject it and fall back to the validated state value."""
+    request = _fake_request(request_id="rid-state")
+    request.headers = {
+        "X-Request-ID": "evil\r\nX-Injected: true\r\n" + ("A" * 500),
+    }
+
+    async with log_access(request, path="/api/v1/data/rid-unsafe") as ctx:
+        ctx.set_status(200)
+
+    row = (
+        await db_session.execute(
+            select(AccessLog).where(AccessLog.path == "/api/v1/data/rid-unsafe"),
+        )
+    ).scalars().one()
+    # Header rejected → fell back to the (allow-listed) state value.
+    assert row.request_id == "rid-state"
+
+
 async def test_log_access_persists_when_block_raises_http_exception(
     db_session: AsyncSession,
 ) -> None:
