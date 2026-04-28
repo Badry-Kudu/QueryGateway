@@ -62,8 +62,8 @@ async def list_connections(
 async def create_connection(
     payload: ConnectionCreate,
     db: AsyncSession = Depends(get_db),
+    svc: ConnectionService = Depends(_service),
 ) -> ConnectionResponse:
-    svc = ConnectionService(ConnectionRepository(db))
     try:
         result = await svc.create_connection(payload)
     except ValueError as exc:
@@ -96,8 +96,8 @@ async def update_connection(
     connection_id: uuid.UUID,
     payload: ConnectionUpdate,
     db: AsyncSession = Depends(get_db),
+    svc: ConnectionService = Depends(_service),
 ) -> ConnectionResponse:
-    svc = ConnectionService(ConnectionRepository(db))
     try:
         result = await svc.update_connection(connection_id, payload)
     except ValueError as exc:
@@ -116,8 +116,8 @@ async def update_connection(
 async def delete_connection(
     connection_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    svc: ConnectionService = Depends(_service),
 ) -> None:
-    svc = ConnectionService(ConnectionRepository(db))
     deleted = await svc.delete_connection(connection_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Connection not found.")

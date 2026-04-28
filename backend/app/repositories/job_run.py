@@ -4,16 +4,21 @@ import uuid
 from collections.abc import Sequence
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.job_run import JobRun
+from app.repositories.base import BaseCrudRepository
 
 
-class JobRunRepository:
-    """Data-access layer for job run audit records."""
+class JobRunRepository(BaseCrudRepository[JobRun]):
+    """Data-access layer for job run audit records.
 
-    def __init__(self, db: AsyncSession) -> None:
-        self._db = db
+    Inherits ``get_by_id`` / ``create`` / ``update`` from
+    ``BaseCrudRepository``. Only ``get_all`` is custom because it filters
+    by ``schedule_id`` / ``endpoint_id`` rather than the base
+    ``active_only`` flag.
+    """
+
+    model = JobRun
 
     async def get_all(
         self,
@@ -29,22 +34,3 @@ class JobRunRepository:
             stmt = stmt.where(JobRun.endpoint_id == endpoint_id)
         result = await self._db.execute(stmt)
         return result.scalars().all()
-
-    async def get_by_id(self, job_run_id: uuid.UUID) -> JobRun | None:
-        result = await self._db.execute(
-            select(JobRun).where(JobRun.id == job_run_id)
-        )
-        return result.scalar_one_or_none()
-
-    async def create(self, obj: JobRun) -> JobRun:
-        self._db.add(obj)
-        await self._db.flush()
-        await self._db.refresh(obj)
-        return obj
-
-    async def update(self, obj: JobRun, changes: dict[str, object]) -> JobRun:
-        for field, value in changes.items():
-            setattr(obj, field, value)
-        await self._db.flush()
-        await self._db.refresh(obj)
-        return obj

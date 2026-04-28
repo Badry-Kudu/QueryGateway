@@ -81,13 +81,8 @@ async def list_schedules(
 async def create_schedule(
     payload: ScheduleCreate,
     db: AsyncSession = Depends(get_db),
+    svc: ScheduleService = Depends(_service),
 ) -> ScheduleResponse:
-    svc = ScheduleService(
-        ScheduleRepository(db),
-        EndpointRepository(db),
-        JobRunRepository(db),
-        SnapshotRepository(db),
-    )
     try:
         result = await svc.create_schedule(payload)
     except ValueError as exc:
@@ -124,13 +119,8 @@ async def update_schedule(
     schedule_id: uuid.UUID,
     payload: ScheduleUpdate,
     db: AsyncSession = Depends(get_db),
+    svc: ScheduleService = Depends(_service),
 ) -> ScheduleResponse:
-    svc = ScheduleService(
-        ScheduleRepository(db),
-        EndpointRepository(db),
-        JobRunRepository(db),
-        SnapshotRepository(db),
-    )
     try:
         result = await svc.update_schedule(schedule_id, payload)
     except ValueError as exc:
@@ -153,8 +143,8 @@ async def update_schedule(
 async def delete_schedule(
     schedule_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    svc: ScheduleService = Depends(_service),
 ) -> None:
-    svc = ScheduleService(ScheduleRepository(db))
     deleted = await svc.delete_schedule(schedule_id)
     if not deleted:
         raise HTTPException(
@@ -174,14 +164,8 @@ async def delete_schedule(
 )
 async def run_now(
     schedule_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
+    svc: ScheduleService = Depends(_service),
 ) -> dict[str, str]:
-    svc = ScheduleService(
-        ScheduleRepository(db),
-        EndpointRepository(db),
-        JobRunRepository(db),
-        SnapshotRepository(db),
-    )
     try:
         await svc.run_now(schedule_id)
     except ValueError as exc:
@@ -199,8 +183,8 @@ async def run_now(
 async def pause_schedule(
     schedule_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    svc: ScheduleService = Depends(_service),
 ) -> ScheduleResponse:
-    svc = ScheduleService(ScheduleRepository(db))
     result = await svc.pause(schedule_id)
     if result is None:
         raise HTTPException(
@@ -218,8 +202,8 @@ async def pause_schedule(
 async def resume_schedule(
     schedule_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    svc: ScheduleService = Depends(_service),
 ) -> ScheduleResponse:
-    svc = ScheduleService(ScheduleRepository(db))
     result = await svc.resume(schedule_id)
     if result is None:
         raise HTTPException(

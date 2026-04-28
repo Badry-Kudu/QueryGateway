@@ -38,8 +38,8 @@ def _service(db: AsyncSession = Depends(get_db)) -> SettingsService:
 )
 async def list_settings(
     db: AsyncSession = Depends(get_db),
+    svc: SettingsService = Depends(_service),
 ) -> list[SettingResponse]:
-    svc = SettingsService(SettingsRepository(db))
     result = list(await svc.list_settings())
     await db.commit()
     return result
@@ -83,8 +83,8 @@ async def update_setting(
     key: str,
     payload: SettingUpdate,
     db: AsyncSession = Depends(get_db),
+    svc: SettingsService = Depends(_service),
 ) -> SettingResponse:
-    svc = SettingsService(SettingsRepository(db))
     try:
         result = await svc.update_setting(key, payload.value)
     except ValueError as exc:
@@ -104,8 +104,8 @@ async def update_setting(
 async def bulk_update_settings(
     payload: SettingBulkUpdate,
     db: AsyncSession = Depends(get_db),
+    svc: SettingsService = Depends(_service),
 ) -> list[SettingResponse]:
-    svc = SettingsService(SettingsRepository(db))
     try:
         results = await svc.update_bulk(payload.settings)
     except ValueError as exc:
