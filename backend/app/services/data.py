@@ -19,6 +19,7 @@ and the access-log context manager.
 from __future__ import annotations
 
 import base64
+import time
 import uuid
 from typing import Any
 
@@ -28,6 +29,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.middleware import resolve_request_id
 from app.models.endpoint import ApiEndpoint
 from app.repositories.auth_method import AuthMethodRepository
 from app.repositories.connection import ConnectionRepository
@@ -277,6 +279,10 @@ class DataService:
                 content={"detail": "Data source connection is unavailable."},
             )
 
+        # Time the executor call locally so the failure log can report
+        # duration_ms even when ``execute_query`` raises before returning
+        # its own measurement.
+        query_start = time.perf_counter()
         try:
             columns, rows, query_duration_ms = await execute_query(
                 connection=connection,
@@ -284,13 +290,17 @@ class DataService:
                 params=params,
             )
         except SqlExecutionError as exc:
+            duration_ms = round((time.perf_counter() - query_start) * 1000, 2)
             log.error(
                 "data_endpoint_query_failed",
                 endpoint_id=str(endpoint.id),
                 endpoint=path,
                 user=principal or "anonymous",
                 status=500,
-                request_id=request.headers.get("X-Request-ID", ""),
+                request_id=resolve_request_id(request),
+                method=request.method,
+                client_ip=request.client.host if request.client else None,
+                duration_ms=duration_ms,
                 error=str(exc),
             )
             return JSONResponse(

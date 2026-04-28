@@ -38,6 +38,7 @@ import structlog
 from fastapi import HTTPException, Request
 
 from app import database
+from app.middleware import resolve_request_id
 from app.models.access_log import AccessLog
 
 log = structlog.get_logger()
@@ -102,10 +103,7 @@ async def log_access(
 async def _write(ctx: AccessLogContext, *, duration_ms: float) -> None:
     """Persist one row using a fresh session so the request's transaction
     state can never poison or be poisoned by the access log."""
-    request_id = str(
-        ctx.request.headers.get("X-Request-ID", "")
-        or ctx.request.state.__dict__.get("request_id", "")
-    )
+    request_id = resolve_request_id(ctx.request)
     try:
         async with database.AsyncSessionLocal() as session:
             session.add(
@@ -130,4 +128,6 @@ async def _write(ctx: AccessLogContext, *, duration_ms: float) -> None:
             endpoint=ctx.path,
             status=ctx.status_code,
             duration_ms=round(duration_ms, 2),
+            method=ctx.request.method,
+            client_ip=ctx.request.client.host if ctx.request.client else None,
         )

@@ -15,12 +15,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-def _fake_request(method: str = "GET") -> MagicMock:
-    """Build a minimal Request stand-in suitable for log_access."""
+def _fake_request(method: str = "GET", request_id: str = "rid-123") -> MagicMock:
+    """Build a minimal Request stand-in suitable for log_access.
+
+    ``request_id`` is set as a real attribute on ``state`` (rather than
+    leaving MagicMock to auto-mock the lookup) so ``getattr(request.state,
+    "request_id", "")`` returns a string the DB can persist.
+    """
     req = MagicMock()
     req.method = method
     req.headers = {}
-    req.state.__dict__ = {}
+    req.state = MagicMock()
+    req.state.request_id = request_id
     req.client = MagicMock()
     req.client.host = "127.0.0.1"
     return req
@@ -74,6 +80,27 @@ async def test_log_access_preserves_caller_set_status_on_unhandled_exception(
     ).scalars().all()
     assert len(rows) == 1
     assert rows[0].status_code == 418
+
+
+async def test_log_access_uses_header_request_id_over_state(
+    db_session: AsyncSession,
+) -> None:
+    """An incoming ``X-Request-ID`` header must override the ID the
+    middleware put on ``request.state``. Caller-supplied correlation IDs
+    are how external systems trace a request across service boundaries,
+    so they take precedence over the server-generated fallback."""
+    request = _fake_request(request_id="rid-state")
+    request.headers = {"X-Request-ID": "rid-header"}
+
+    async with log_access(request, path="/api/v1/data/rid-precedence") as ctx:
+        ctx.set_status(200)
+
+    row = (
+        await db_session.execute(
+            select(AccessLog).where(AccessLog.path == "/api/v1/data/rid-precedence"),
+        )
+    ).scalars().one()
+    assert row.request_id == "rid-header"
 
 
 async def test_log_access_persists_when_block_raises_http_exception(

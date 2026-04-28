@@ -24,6 +24,31 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 log = structlog.get_logger()
 
 
+def resolve_request_id(request: Any) -> str:
+    """Return a non-empty correlation ID for ``request``.
+
+    Resolution order (caller-supplied wins so external systems can trace
+    requests across service boundaries):
+
+    1. ``X-Request-ID`` header on the inbound request.
+    2. ``request.state.request_id`` populated by ``RequestLoggingMiddleware``.
+    3. A freshly minted UUID — guarantees logs and audit rows always
+       carry a usable ID even if the middleware was bypassed (test
+       harnesses that mount the app directly, or future deployments
+       that strip middleware).
+
+    ``getattr`` rather than ``request.state.__dict__.get`` because
+    Starlette ``State`` routes attribute access through
+    ``__setattr__``/``__getattr__``, so attributes never appear in
+    ``__dict__``.
+    """
+    return (
+        request.headers.get("X-Request-ID")
+        or getattr(request.state, "request_id", "")
+        or str(uuid.uuid4())
+    )
+
+
 class RequestLoggingMiddleware:
     """Pure ASGI request-logging middleware with X-Request-ID propagation."""
 
@@ -46,6 +71,10 @@ class RequestLoggingMiddleware:
 
         path: str = scope.get("path", "")
         method: str = scope.get("method", "")
+        client = scope.get("client")
+        client_ip: str | None = (
+            str(client[0]) if isinstance(client, tuple) and len(client) > 0 else None
+        )
 
         # Establish per-request log context visible to all downstream loggers.
         structlog.contextvars.clear_contextvars()
@@ -53,8 +82,19 @@ class RequestLoggingMiddleware:
             request_id=request_id,
             endpoint=path,
             method=method,
+            client_ip=client_ip,
             user="anonymous",  # Updated by auth middleware in later phases.
         )
+
+        # Make the request_id reachable from FastAPI handlers via
+        # ``request.state.request_id``. structlog's contextvars work for
+        # log emission but route handlers that need to *propagate* the
+        # ID (e.g. the access-log writer's persisted ``request_id``
+        # column, or the data router's failure log) need a synchronous
+        # accessor on the Request object. Starlette materializes
+        # ``Request.state`` from ``scope["state"]``.
+        scope_state = scope.setdefault("state", {})
+        scope_state["request_id"] = request_id
 
         status_code: int = 0
 
@@ -81,5 +121,12 @@ class RequestLoggingMiddleware:
             )
         except Exception:
             duration_ms = round((time.perf_counter() - start) * 1000, 2)
-            log.exception("request_failed", duration_ms=duration_ms)
+            # ``status_code`` may still be 0 if the failure happened
+            # before the response started; default to 500 so the
+            # mandatory structured-log field set is always populated.
+            log.exception(
+                "request_failed",
+                status=status_code or 500,
+                duration_ms=duration_ms,
+            )
             raise

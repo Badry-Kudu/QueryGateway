@@ -87,6 +87,14 @@ def _build_field(descriptor: dict[str, Any]) -> tuple[type, Any]:
     elif required:
         field_default = ...
     else:
+        # Optional with no configured default: the field accepts a
+        # missing value by defaulting to None.  ``validate_default=True``
+        # would reject ``None`` as a default for a non-nullable
+        # annotation (``int``, ``date``, etc.), so widen the annotation
+        # to ``T | None`` here.  This path matches legacy behavior:
+        # ``_coerce_param`` skipped optional params entirely when they
+        # weren't supplied.
+        annotation = annotation | None  # type: ignore[assignment]
         field_default = None
 
     return annotation, field_default
@@ -117,7 +125,12 @@ def build_param_model(param_schema: dict[str, Any]) -> type[BaseModel]:
 
     model = create_model(
         "EndpointParams",
-        __config__=ConfigDict(extra="ignore"),
+        # ``validate_default=True`` makes Pydantic coerce/validate the
+        # ``default`` we feed each field. Without it, a corrupted stored
+        # descriptor (e.g. ``{"type": "integer", "default": "abc"}``)
+        # would silently bypass validation and surface as an invalid
+        # bind parameter at SQL execution time.
+        __config__=ConfigDict(extra="ignore", validate_default=True),
         **fields,  # type: ignore[call-overload]
     )
     return model
