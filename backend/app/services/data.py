@@ -29,6 +29,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.middleware import resolve_request_id
 from app.models.endpoint import ApiEndpoint
 from app.repositories.auth_method import AuthMethodRepository
 from app.repositories.connection import ConnectionRepository
@@ -290,25 +291,13 @@ class DataService:
             )
         except SqlExecutionError as exc:
             duration_ms = round((time.perf_counter() - query_start) * 1000, 2)
-            # Header (caller-supplied) wins over the middleware-generated
-            # ID stored on ``request.state``. ``getattr`` (rather than
-            # ``__dict__.get``) is needed because Starlette's ``State``
-            # routes attribute access through ``__setattr__``/``__getattr__``.
-            # Final fallback to a fresh UUID guarantees logs always carry
-            # a non-empty correlation ID, even if the middleware was
-            # bypassed (e.g. test harnesses that mount the app directly).
-            request_id = (
-                request.headers.get("X-Request-ID")
-                or getattr(request.state, "request_id", "")
-                or str(uuid.uuid4())
-            )
             log.error(
                 "data_endpoint_query_failed",
                 endpoint_id=str(endpoint.id),
                 endpoint=path,
                 user=principal or "anonymous",
                 status=500,
-                request_id=request_id,
+                request_id=resolve_request_id(request),
                 method=request.method,
                 client_ip=request.client.host if request.client else None,
                 duration_ms=duration_ms,

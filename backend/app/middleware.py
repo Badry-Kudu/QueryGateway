@@ -24,6 +24,31 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 log = structlog.get_logger()
 
 
+def resolve_request_id(request: Any) -> str:
+    """Return a non-empty correlation ID for ``request``.
+
+    Resolution order (caller-supplied wins so external systems can trace
+    requests across service boundaries):
+
+    1. ``X-Request-ID`` header on the inbound request.
+    2. ``request.state.request_id`` populated by ``RequestLoggingMiddleware``.
+    3. A freshly minted UUID — guarantees logs and audit rows always
+       carry a usable ID even if the middleware was bypassed (test
+       harnesses that mount the app directly, or future deployments
+       that strip middleware).
+
+    ``getattr`` rather than ``request.state.__dict__.get`` because
+    Starlette ``State`` routes attribute access through
+    ``__setattr__``/``__getattr__``, so attributes never appear in
+    ``__dict__``.
+    """
+    return (
+        request.headers.get("X-Request-ID")
+        or getattr(request.state, "request_id", "")
+        or str(uuid.uuid4())
+    )
+
+
 class RequestLoggingMiddleware:
     """Pure ASGI request-logging middleware with X-Request-ID propagation."""
 
