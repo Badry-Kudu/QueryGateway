@@ -43,11 +43,11 @@ All user-defined SQL is executed via SQLAlchemy `text()` with named bind paramet
 
 ### Authentication
 - Admin API: session-based or JWT Bearer (TBD per Phase 1).
-- Data endpoints: per-endpoint configurable auth — Bearer token, Basic Auth, or API key. Middleware resolves the policy from endpoint metadata at request time.
+- Data endpoints: per-endpoint configurable auth — Bearer token, Basic Auth, or API key. Middleware resolves the policy from endpoint metadata at request time and enforces it when an auth method is attached. Endpoints published without an auth method are served publicly, so one must be assigned to any endpoint that should be protected.
 - Credentials are hashed with `bcrypt`; tokens are issued/verified with `PyJWT`.
 
 ### Scheduler
-APScheduler 3.x runs in-process with a PostgreSQL job store, ensuring job persistence across restarts. Execution telemetry (start time, duration, row count, status, errors) is written to the app DB and exposed through admin APIs.
+APScheduler 3.x runs in-process with an in-memory job store. Schedule definitions are persisted in the app database (PostgreSQL), and the corresponding APScheduler jobs are (re)registered when a schedule is created, updated, or resumed. The in-memory jobs are not automatically reloaded on process restart — active schedule rows remain in the database, but their jobs are re-registered on the next create/update/resume. Execution telemetry (start time, duration, row count, status, errors) is written to the app DB and exposed through admin APIs.
 
 ### Snapshot Cache
 Scheduled endpoints can serve results from a PostgreSQL JSONB snapshot rather than executing live queries. Freshness metadata is returned in responses. Stale snapshot fallback behavior is configurable per endpoint.
