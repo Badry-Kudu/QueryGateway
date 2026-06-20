@@ -1,7 +1,52 @@
 # QueryGateway
 
-> self-hosted tool that turns your database queries into secure API endpoints, with built-in authentication, caching, and scheduling.
+> A self-hosted platform that turns Oracle SQL queries into secure, versioned REST API endpoints — no application code required. Author a parameterized query in a guided wizard, attach authentication, choose a data-freshness strategy, and publish a live endpoint that other systems can consume.
 
+QueryGateway is built for teams that need to expose data from an Oracle database over HTTP safely and quickly. Instead of writing and deploying a bespoke microservice for every report or integration, an administrator defines the query once through a web console, and QueryGateway handles routing, authentication, parameter validation, SQL safety, optional caching, and scheduled refresh.
+
+![Admin console dashboard](screenshot.png)
+
+## How It Works
+
+```
+Define connection ─▶ Author SQL (with :bind params) ─▶ Attach auth ─▶ Choose data strategy ─▶ Publish
+                                                                                                  │
+   API consumer ──── GET /api/v1/data/<your-endpoint> ──── authenticated, parameter-validated ────┘
+```
+
+1. **Connect** to your Oracle database with securely stored, encrypted credentials.
+2. **Author** a `SELECT` query using named bind parameters (`:param_name`) in a rich SQL editor, and preview the results.
+3. **Secure** the endpoint by attaching a Bearer token, Basic Auth, or API key policy.
+4. **Choose** a data strategy: serve results **live** on each request, or from a **scheduled snapshot** cache.
+5. **Publish** a versioned endpoint under `/api/v1/data/*` that resolves dynamically — no service restart needed.
+
+## Features
+
+QueryGateway is organized into five admin modules, all driven from the React admin console:
+
+| Module | What it does |
+|--------|--------------|
+| **Connections** | Create, edit, test, and delete Oracle database connections. Credentials are encrypted at rest; pool sizing and timeouts are configurable. Uses `python-oracledb` (thin mode by default). |
+| **API Creation Wizard** | A multi-step wizard that turns a parameterized SQL query into a deployable GET endpoint: pick a connection, author SQL with a rich editor, preview sample rows and inferred schema, map/rename output columns, attach an auth method, and select a data strategy. |
+| **Authentication** | Manage per-endpoint auth methods — Bearer token (JWT), Basic Auth, and API key. Tokens are issued/verified with `PyJWT`; credentials are hashed with `bcrypt`. Middleware enforces a default-deny policy on all data endpoints. |
+| **Scheduling & Snapshots** | Schedule query refreshes with APScheduler (persistent PostgreSQL job store). Run now, pause/resume, and enable/disable jobs. Results are cached as PostgreSQL JSONB snapshots and served with freshness metadata; jobs survive restarts. |
+| **Settings & Health** | Configure runtime settings (base URL/port, logging level, query timeouts, CORS/rate-limit inputs) and view a health dashboard covering API, PostgreSQL, Oracle connectivity, scheduler status, and recent job outcomes. |
+
+### Security by Default
+
+- **SQL injection resistant** — user-defined SQL runs only through SQLAlchemy `text()` with named bind parameters. Request values are never concatenated into SQL strings, and bind values are validated through typed schemas before execution.
+- **Encrypted credentials** — Oracle connection secrets are encrypted at rest using an environment-provided key.
+- **Per-endpoint authentication** — every `/api/v1/data/*` endpoint requires an explicitly attached auth policy before it can serve traffic.
+- **Structured, redacted logging** — `structlog` emits JSON logs with correlation fields (`request_id`, `user`, `endpoint`, `status`, `duration_ms`); credentials and tokens are redacted before emission.
+
+### Two API Surfaces
+
+| Namespace | Purpose | Who calls it |
+|-----------|---------|--------------|
+| `/api/v1/admin/*` | Manage connections, auth, endpoints, schedules, settings, and health | The admin SPA |
+| `/api/v1/data/*` | Serve dynamic data from live queries or cached snapshots | Your API consumers |
+
+All routes are versioned from day one; breaking contract changes are introduced under a new version path rather than mutating `v1`.
 
 ## Platform Support
 
@@ -131,11 +176,14 @@ alembic downgrade -1
 
 ## Documentation
 
-- [Architecture](docs/architecture.md)
-- [Contributing](docs/contributing.md)
-- [Conventions](docs/conventions.md)
-- [Implementation Plan](project_plan.md)
-- [Progress](docs/progress.md)
+- [Architecture](docs/architecture.md) — system components, design decisions, directory layout
+- [Implementation Plan](project_plan.md) — modules, scope, and phased delivery
+- [Deployment](docs/deployment.md) — self-hosted setup and secret generation
+- [Operations](docs/operations.md) — backup/restore, monitoring, troubleshooting
+- [Security Checklist](docs/security_checklist.md) — security validation controls
+- [Conventions](docs/conventions.md) — coding standards
+- [Contributing](docs/contributing.md) — onboarding guide
+- [Progress](docs/progress.md) — implementation status
 
 ## Tech Stack
 
