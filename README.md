@@ -11,7 +11,7 @@
 
 QueryGateway is built for teams that need to expose data from an Oracle database over HTTP safely and quickly. Instead of writing and deploying a bespoke microservice for every report or integration, an administrator defines the query once through a web console, and QueryGateway handles routing, authentication, parameter validation, SQL safety, optional caching, and scheduled refresh.
 
-![Admin console dashboard](screenshot.png)
+![QueryGateway demo](./demo.gif)
 
 > ⭐ If QueryGateway is useful to you, please consider starring the repo — it helps others discover the project.
 
