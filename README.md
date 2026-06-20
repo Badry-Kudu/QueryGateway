@@ -36,10 +36,10 @@ QueryGateway is built for teams that need to expose data from an Oracle database
 
 Exposing data from an Oracle database over an API usually means writing a new service: wiring up a connection pool, validating inputs, guarding against SQL injection, adding authentication, handling caching, and shipping a deployment — repeated for every query. It's slow, and each hand-rolled service is another place for a security mistake.
 
-QueryGateway collapses that work into a configuration step. Define the query once, and you get a hardened, authenticated, versioned endpoint with parameter validation and optional caching built in:
+QueryGateway collapses that work into a configuration step. Define the query once, and you get a hardened, versioned endpoint with parameter validation, configurable authentication, and optional caching built in:
 
 - **No glue code** — go from SQL to a deployed endpoint through a wizard, not a codebase.
-- **Secure by default** — bind-parameter-only SQL, encrypted credentials, and mandatory per-endpoint auth (default-deny).
+- **Built-in security controls** — bind-parameter-only SQL, encrypted credentials, and per-endpoint authentication (Bearer/Basic/API key).
 - **Fast and consistent** — every endpoint gets the same validation, logging, and versioning, so quality doesn't depend on who wrote it.
 - **Cache when you need it** — serve heavy queries from scheduled snapshots instead of hitting Oracle on every request.
 - **Self-hosted** — your data and credentials never leave your infrastructure.
@@ -54,10 +54,10 @@ QueryGateway collapses that work into a configuration step. Define the query onc
 
 ## How It Works
 
-```
+```text
 Define connection ─▶ Author SQL (with :bind params) ─▶ Attach auth ─▶ Choose data strategy ─▶ Publish
                                                                                                   │
-   API consumer ──── GET /api/v1/data/<your-endpoint> ──── authenticated, parameter-validated ────┘
+   API consumer ──── GET /api/v1/data/<your-endpoint> ──── auth-checked, parameter-validated ─────┘
 ```
 
 1. **Connect** to your Oracle database with securely stored, encrypted credentials.
@@ -74,15 +74,15 @@ QueryGateway is organized into five admin modules, all driven from the React adm
 |--------|--------------|
 | **Connections** | Create, edit, test, and delete Oracle database connections. Credentials are encrypted at rest; pool sizing and timeouts are configurable. Uses `python-oracledb` (thin mode by default). |
 | **API Creation Wizard** | A multi-step wizard that turns a parameterized SQL query into a deployable GET endpoint: pick a connection, author SQL with a rich editor, preview sample rows and inferred schema, map/rename output columns, attach an auth method, and select a data strategy. |
-| **Authentication** | Manage per-endpoint auth methods — Bearer token (JWT), Basic Auth, and API key. Tokens are issued/verified with `PyJWT`; credentials are hashed with `bcrypt`. Middleware enforces a default-deny policy on all data endpoints. |
-| **Scheduling & Snapshots** | Schedule query refreshes with APScheduler (persistent PostgreSQL job store). Run now, pause/resume, and enable/disable jobs. Results are cached as PostgreSQL JSONB snapshots and served with freshness metadata; jobs survive restarts. |
+| **Authentication** | Manage per-endpoint auth methods — Bearer token (JWT), Basic Auth, and API key. Tokens are issued/verified with `PyJWT`; credentials are hashed with `bcrypt`. When an auth method is attached to an endpoint, middleware enforces it on every request; endpoints with no auth method attached are served publicly. |
+| **Scheduling & Snapshots** | Schedule query refreshes with the in-process APScheduler (cron or interval). Run now, pause/resume, and enable/disable jobs. Results are cached as PostgreSQL JSONB snapshots and served with freshness metadata. Schedule definitions are persisted in the app database; the active APScheduler jobs run in-memory and are (re)registered when a schedule is created, updated, or resumed. |
 | **Settings & Health** | Configure runtime settings (base URL/port, logging level, query timeouts, CORS/rate-limit inputs) and view a health dashboard covering API, PostgreSQL, Oracle connectivity, scheduler status, and recent job outcomes. |
 
 ### Security by Default
 
 - **SQL injection resistant** — user-defined SQL runs only through SQLAlchemy `text()` with named bind parameters. Request values are never concatenated into SQL strings, and bind values are validated through typed schemas before execution.
 - **Encrypted credentials** — Oracle connection secrets are encrypted at rest using an environment-provided key.
-- **Per-endpoint authentication** — every `/api/v1/data/*` endpoint requires an explicitly attached auth policy before it can serve traffic.
+- **Per-endpoint authentication** — attach a Bearer token, Basic Auth, or API key policy to an endpoint and it is enforced on every request. Endpoints published without an auth method are public, so assign one to any endpoint that should be protected.
 - **Structured, redacted logging** — `structlog` emits JSON logs with correlation fields (`request_id`, `user`, `endpoint`, `status`, `duration_ms`); credentials and tokens are redacted before emission.
 
 ### Two API Surfaces
