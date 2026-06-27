@@ -17,7 +17,7 @@ RUN npm run build
 # On 1.29-alpine (alpine 3.23) so the base ships patched openssl
 # (libssl3/libcrypto3 >= 3.5.x); 1.27-alpine was stuck on alpine 3.21 with a
 # CRITICAL openssl CVE (CVE-2026-31789) that the Trivy gate rejects.
-FROM nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de AS production
+FROM nginx:1.31-alpine@sha256:54f2a904c251d5a34adf545a72d32515a15e08418dae0266e23be2e18c66fefa AS production
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 
