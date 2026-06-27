@@ -22,17 +22,15 @@ defining their custom queries; the base only fills in the boilerplate.
 from __future__ import annotations
 
 import uuid
-from typing import ClassVar, Generic, TypeVar
+from typing import ClassVar
 
 from sqlalchemy import inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.base import Base
 
-ModelT = TypeVar("ModelT", bound=Base)
 
-
-class BaseCrudRepository(Generic[ModelT]):
+class BaseCrudRepository[ModelT: Base]:
     """Shared CRUD operations keyed on a UUID primary key.
 
     Subclasses must set the ``model`` class variable to the ORM class

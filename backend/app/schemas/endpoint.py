@@ -10,6 +10,7 @@ Public contract rules:
 import re
 import uuid
 from datetime import datetime
+from typing import Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -69,7 +70,7 @@ class ParamDescriptor(BaseModel):
     )
 
     @model_validator(mode="after")
-    def optional_must_have_default(self) -> "ParamDescriptor":
+    def optional_must_have_default(self) -> Self:
         if not self.required and self.default is None:
             raise ValueError("Optional parameters must declare a default value.")
         return self
@@ -121,7 +122,7 @@ class EndpointCreate(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def bind_params_match_schema(self) -> "EndpointCreate":
+    def bind_params_match_schema(self) -> Self:
         sql_params = set(extract_bind_params(self.sql_text))
         schema_params = set(self.param_schema.keys())
         undeclared = sql_params - schema_params
@@ -179,7 +180,7 @@ class EndpointUpdate(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def bind_params_match_schema(self) -> "EndpointUpdate":
+    def bind_params_match_schema(self) -> Self:
         # Only validate when both sql_text and param_schema are supplied together.
         if self.sql_text is not None and self.param_schema is not None:
             sql_params = set(extract_bind_params(self.sql_text))

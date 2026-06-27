@@ -78,7 +78,7 @@ def _mint_admin_token() -> str:
 
 
 @pytest.fixture()
-async def engine() -> AsyncGenerator[AsyncEngine, None]:
+async def engine() -> AsyncGenerator[AsyncEngine]:
     """Function-scoped engine: each test gets a fresh schema on the test's
     own event loop.
 
@@ -139,7 +139,7 @@ async def engine() -> AsyncGenerator[AsyncEngine, None]:
 
 
 @pytest.fixture()
-async def db_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
+async def db_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
     """Per-test async session; rolled back after each test."""
     session_factory: async_sessionmaker[AsyncSession] = async_sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
@@ -150,7 +150,7 @@ async def db_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest.fixture()
-async def async_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+async def async_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient]:
     """HTTP test client wired to the FastAPI app with a test DB session.
 
     Authenticated by default — every request carries a valid admin
@@ -159,7 +159,7 @@ async def async_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, 
     explicitly.
     """
 
-    async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
+    async def override_get_db() -> AsyncGenerator[AsyncSession]:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
@@ -173,13 +173,13 @@ async def async_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, 
 
 
 @pytest.fixture()
-async def unauth_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+async def unauth_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient]:
     """HTTP test client without an Authorization header.
 
     Use for tests that verify the 401 path on admin routes.
     """
 
-    async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
+    async def override_get_db() -> AsyncGenerator[AsyncSession]:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
@@ -191,7 +191,7 @@ async def unauth_client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient,
 
 
 @pytest.fixture()
-async def http_client() -> AsyncGenerator[AsyncClient, None]:
+async def http_client() -> AsyncGenerator[AsyncClient]:
     """HTTP test client with no DB dependency override.
 
     Use this fixture for endpoints that do not touch the database (e.g.

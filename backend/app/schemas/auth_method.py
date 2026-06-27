@@ -9,6 +9,7 @@ Public contract rules:
 
 import uuid
 from datetime import datetime
+from typing import Self
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -42,7 +43,7 @@ class AuthMethodCreate(BaseModel):
     key_prefix: str = Field("db2api_", max_length=32)
 
     @model_validator(mode="after")
-    def validate_type_fields(self) -> "AuthMethodCreate":
+    def validate_type_fields(self) -> Self:
         if self.method_type == AuthMethodType.basic:
             if not self.username:
                 raise ValueError("username is required for basic auth.")
