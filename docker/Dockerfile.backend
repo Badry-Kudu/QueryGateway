@@ -36,8 +36,10 @@ EXPOSE 8000
 # and structured logs. This relies on the backend NOT being directly
 # reachable: docker-compose.yml uses `expose` (internal-only) rather than
 # `ports`, so only the nginx service can send forwarded headers and no
-# external client can forge them. If you ever publish this port to the
-# host, narrow --forwarded-allow-ips to the proxy's address/subnet instead
-# of "*".
+# external client can forge them directly. nginx also OVERWRITES
+# X-Forwarded-For with the real client address (see docker/nginx.conf), so a
+# client cannot smuggle a spoofed IP through the proxy either. If you ever
+# publish this port to the host, narrow --forwarded-allow-ips to the proxy's
+# address/subnet instead of "*".
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", \
      "--proxy-headers", "--forwarded-allow-ips", "*"]

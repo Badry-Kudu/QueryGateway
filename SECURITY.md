@@ -154,6 +154,10 @@ item-by-item list) plus the standards every change is expected to uphold.
   client IP from `X-Forwarded-For` reaches the audit trail. Without this,
   `access_logs.remote_ip` and the structured-log `client_ip` record the
   proxy's address instead of the client's, defeating §3.4/§3.5 forensics.
+  The reverse proxy must **overwrite** `X-Forwarded-For` with the real
+  connecting address (e.g. nginx `proxy_set_header X-Forwarded-For
+  $remote_addr;`), never append to a client-supplied value — otherwise a
+  client can prepend a spoofed IP that a trusting backend logs as the source.
 - Restrict **CORS** via `CORS_ORIGINS` in production. The default is a local
   development origin (`http://localhost:5173`). **Never combine a wildcard
   origin (`CORS_ORIGINS=*`) with credentialed requests** — the app sends
