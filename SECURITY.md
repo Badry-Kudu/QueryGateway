@@ -171,9 +171,23 @@ item-by-item list) plus the standards every change is expected to uphold.
   List explicit origins in production.
 - Set `DEBUG=false` in production, and consider disabling the interactive API
   docs (`/api/docs`, `/api/redoc`, `/api/openapi.json`) in production so the
-  full admin API schema is not exposed. Restrict network access to both the
-  PostgreSQL application database and the Oracle data sources to the
-  application network. Keep the deployment "Action Required" items in
+  full admin API schema is not exposed.
+- Restrict network access to **both** datastores to the application network —
+  they are distinct and both sensitive:
+  - **PostgreSQL is QueryGateway's own application database.** It stores the
+    service's state — Fernet-encrypted Oracle credentials and bearer signing
+    secrets, bcrypt'd auth-method secrets, endpoint/SQL definitions, and the
+    access-log audit trail. Compromising it is equivalent to compromising the
+    gateway itself.
+  - **Oracle is the queried data source** (one or more upstream databases the
+    dynamic endpoints read from). Compromising it exposes the business data the
+    gateway serves.
+
+  Neither should be reachable outside the application network — in the bundled
+  compose stack both sit on the internal `backend` network and their host port
+  mappings are bound to loopback only. (Note: "Restrict PostgreSQL access" in
+  `docs/security_checklist.md` #49 refers to this app database; it is **not** a
+  typo for Oracle.) Keep the deployment "Action Required" items in
   [`docs/security_checklist.md`](docs/security_checklist.md) verified per
   installation.
 
