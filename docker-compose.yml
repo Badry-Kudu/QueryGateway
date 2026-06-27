@@ -10,6 +10,9 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    # Data tier only — the API reaches Postgres here; nginx never does.
+    networks:
+      - backend
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U db2api -d db2api"]
       interval: 10s
@@ -34,14 +37,22 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY?ENCRYPTION_KEY is required}
       ADMIN_USERNAME: ${ADMIN_USERNAME?ADMIN_USERNAME is required}
       ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH?ADMIN_PASSWORD_HASH is required}
+      # Trust forwarded headers ONLY from the dedicated nginx<->api "edge"
+      # subnet. nginx is the sole member of that subnet besides this service,
+      # so db/oracle (on the separate "backend" network) cannot reach :8000
+      # to forge X-Forwarded-For even if compromised. Must match the edge
+      # network's subnet below.
+      FORWARDED_ALLOW_IPS: "10.31.0.0/24"
     # The backend is intentionally NOT published to the host: it is reached
-    # only through the nginx reverse proxy (`web`) on the internal network.
-    # Keeping it off the host is what makes uvicorn's --forwarded-allow-ips
-    # trust safe — no external client can reach :8000 directly to forge
-    # X-Forwarded-For. Use `http://localhost/api/...` (via `web`) in dev, or
-    # `docker compose exec api ...` for direct debugging.
+    # only through the nginx reverse proxy (`web`). It sits on two segmented
+    # networks — `edge` (shared only with nginx, the trusted proxy hop) and
+    # `backend` (shared only with the data tier). Use `http://localhost/api/...`
+    # (via `web`) in dev, or `docker compose exec api ...` for direct debugging.
     expose:
       - "8000"
+    networks:
+      - edge
+      - backend
     depends_on:
       db:
         condition: service_healthy
@@ -59,6 +70,10 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+    # Edge tier only — nginx is the trusted proxy hop and the single member of
+    # the edge subnet that talks to the API. It has no route to the data tier.
+    networks:
+      - edge
     depends_on:
       api:
         condition: service_healthy
@@ -75,12 +90,28 @@ services:
       - "1521:1521"
     volumes:
       - oracle_data:/opt/oracle/oradata
+    # Data tier only — reachable by the API, never by nginx.
+    networks:
+      - backend
     healthcheck:
       test: ["CMD-SHELL", "healthcheck.sh"]
       interval: 30s
       timeout: 10s
       retries: 10
       start_period: 120s
+
+networks:
+  # nginx <-> api only. Fixed subnet so the backend can scope
+  # FORWARDED_ALLOW_IPS to exactly this hop (see the `api` service).
+  edge:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.31.0.0/24
+  # api <-> data tier (Postgres, Oracle). nginx is NOT attached, so a
+  # compromised data container cannot reach the API to spoof forwarded headers.
+  backend:
+    driver: bridge
 
 volumes:
   db_data:

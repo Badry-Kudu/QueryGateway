@@ -30,16 +30,17 @@ USER appuser
 
 EXPOSE 8000
 
-# --proxy-headers + --forwarded-allow-ips lets uvicorn trust the
-# X-Forwarded-For/X-Real-IP set by the nginx reverse proxy, so the real
-# client IP (not the proxy's container IP) is what reaches the access log
-# and structured logs. This relies on the backend NOT being directly
-# reachable: docker-compose.yml uses `expose` (internal-only) rather than
-# `ports`, so only the nginx service can send forwarded headers and no
-# external client can forge them directly. nginx also OVERWRITES
-# X-Forwarded-For with the real client address (see docker/nginx.conf), so a
-# client cannot smuggle a spoofed IP through the proxy either. If you ever
-# publish this port to the host, narrow --forwarded-allow-ips to the proxy's
-# address/subnet instead of "*".
+# --proxy-headers makes uvicorn read X-Forwarded-For/X-Real-IP so the real
+# client IP (not the proxy's container IP) reaches the access log and
+# structured logs. Crucially we do NOT hardcode --forwarded-allow-ips here:
+# the trusted source is supplied per-deployment via the FORWARDED_ALLOW_IPS
+# env var (uvicorn honors it), and docker-compose.yml scopes it to the
+# dedicated nginx<->api "edge" subnet. That way only the reverse proxy's hop
+# is trusted — sibling containers (db, oracle) sit on a separate network and
+# cannot reach this service to forge headers. If FORWARDED_ALLOW_IPS is unset
+# uvicorn falls back to the safe default (127.0.0.1), so a bare `docker run`
+# never trusts arbitrary peers. Defense in depth: the backend is not
+# published to the host (compose uses `expose`), and nginx OVERWRITES
+# X-Forwarded-For with the real client address (see docker/nginx.conf).
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", \
-     "--proxy-headers", "--forwarded-allow-ips", "*"]
+     "--proxy-headers"]

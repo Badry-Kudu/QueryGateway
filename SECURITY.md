@@ -158,6 +158,11 @@ item-by-item list) plus the standards every change is expected to uphold.
   connecting address (e.g. nginx `proxy_set_header X-Forwarded-For
   $remote_addr;`), never append to a client-supplied value — otherwise a
   client can prepend a spoofed IP that a trusting backend logs as the source.
+  Scope the backend's trusted-proxy list (`--forwarded-allow-ips` /
+  `FORWARDED_ALLOW_IPS`) to the proxy's hop only, and put the backend on a
+  network segment reachable solely by the proxy — so a compromised sibling
+  service cannot connect directly and forge forwarded headers (assume-breach,
+  §1.3).
 - Restrict **CORS** via `CORS_ORIGINS` in production. The default is a local
   development origin (`http://localhost:5173`). **Never combine a wildcard
   origin (`CORS_ORIGINS=*`) with credentialed requests** — the app sends
