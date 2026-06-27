@@ -6,4 +6,8 @@
 #
 # Not included in the base image to avoid build failures in environments where
 # the package is unavailable; python-oracledb is imported lazily at runtime.
-oracledb>=2.4.0
+# Floor raised to the current major (4.x). The high-level API this app uses
+# (connect / cursor / execute / init_oracle_client / call_timeout) is unchanged
+# across 2.x–4.x; verify against a live Oracle instance before production use
+# (not installed in the image or exercised in CI — see requirements.txt note).
+oracledb>=4.0.1
