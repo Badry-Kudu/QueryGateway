@@ -2,23 +2,23 @@
 # fastapi 0.138.x drops Starlette's upper bound, letting us pull a Starlette
 # release with no open advisories (CVE remediation — see requirements.lock).
 fastapi==0.138.1
-uvicorn[standard]==0.32.1
+uvicorn[standard]==0.49.0
 
 # Configuration
-pydantic-settings==2.7.0
+pydantic-settings==2.14.2
 
 # Database - PostgreSQL
 sqlalchemy==2.0.51
-alembic==1.14.0
+alembic==1.18.5
 asyncpg>=0.31.0
-psycopg2-binary>=2.9.9
+psycopg2-binary>=2.9.12
 
 # Oracle connectivity (optional — install separately; see requirements-oracle.txt)
 # python-oracledb is imported lazily inside ConnectionService.test_connection()
 # so the app runs without it; only Oracle connectivity tests will fail at runtime.
 
 # Scheduler
-apscheduler==3.10.4
+apscheduler==3.11.2
 
 # Auth
 PyJWT==2.13.0
