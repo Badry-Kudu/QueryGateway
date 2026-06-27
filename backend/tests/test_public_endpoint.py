@@ -238,9 +238,14 @@ async def test_deleting_auth_method_default_denies_endpoint(
     assert resp.status_code == 401  # default-deny, NOT served publicly
     denials = [e for e in logs if e.get("event") == "unauthenticated_endpoint_denied"]
     assert denials, f"expected unauthenticated_endpoint_denied, got {logs}"
-    # The deny event must be self-contained for audit (§3.5).
+    # The deny event must be self-contained for audit (§3.5): the same
+    # mandatory fields that public_endpoint_served carries must be present so
+    # the denial is independently traceable.
     assert denials[0]["endpoint"] == ep_path
     assert denials[0]["status"] == 401
     assert denials[0]["user"] == "anonymous"
+    assert denials[0]["method"] == "GET"
+    assert "request_id" in denials[0]
+    assert "client_ip" in denials[0]
     assert "duration_ms" in denials[0]
     assert not any(e.get("event") == "public_endpoint_served" for e in logs)
