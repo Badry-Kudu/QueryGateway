@@ -19,6 +19,8 @@ export interface WizardState {
   param_schema: Record<string, ParamDescriptor>;
   column_map: Record<string, string>;
   auth_method_id: string;
+  /** Explicit opt-in to a public endpoint when no auth method is selected. */
+  allow_unauthenticated: boolean;
   data_strategy: DataStrategy;
 }
 
@@ -31,6 +33,7 @@ export const INITIAL_WIZARD_STATE: WizardState = {
   param_schema: {},
   column_map: {},
   auth_method_id: "",
+  allow_unauthenticated: false,
   data_strategy: "live",
 };
 

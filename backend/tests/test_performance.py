@@ -79,6 +79,7 @@ class TestAdminApiLatency:
                 "path": _unique("perf-data"),
                 "connection_id": conn_id,
                 "sql_text": "SELECT 1 FROM dual",
+                "allow_unauthenticated": True,
             },
         )
         elapsed = time.monotonic() - start
@@ -193,6 +194,7 @@ class TestDataApiLatency:
                 "connection_id": conn_id,
                 "sql_text": "SELECT 1 FROM dual",
                 "data_strategy": "snapshot",
+                "allow_unauthenticated": True,
             },
         )
         assert r.status_code == 201

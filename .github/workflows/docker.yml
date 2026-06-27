@@ -17,34 +17,81 @@ permissions:
 
 jobs:
   build:
-    name: Build Docker Images
+    name: Build, Scan & SBOM
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
+      # ── Backend ──────────────────────────────────────────────────────────────
       - name: Build backend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: docker/Dockerfile.backend
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          load: true # load into the local daemon so Trivy/Syft can scan it
+          tags: querygateway-backend:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
 
+      - name: Scan backend image (Trivy, fail on CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: querygateway-backend:ci
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: true # only fail on CRITICALs that have a fix available
+          exit-code: "1"
+          format: table
+
+      - name: Generate backend SBOM (Syft)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: querygateway-backend:ci
+          format: spdx-json
+          artifact-name: sbom-backend.spdx.json
+          upload-artifact: true
+
+      # ── Frontend ─────────────────────────────────────────────────────────────
       - name: Build frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: docker/Dockerfile.frontend
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          load: true
+          tags: querygateway-frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
 
+      - name: Scan frontend image (Trivy, fail on CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: querygateway-frontend:ci
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
+      - name: Generate frontend SBOM (Syft)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: querygateway-frontend:ci
+          format: spdx-json
+          artifact-name: sbom-frontend.spdx.json
+          upload-artifact: true
+
+      # ── Compose sanity check ───────────────────────────────────────────────────
       - name: Create .env for compose validation
         run: |
           echo "JWT_SECRET_KEY=ci-placeholder-not-used-at-runtime" > .env

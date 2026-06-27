@@ -107,7 +107,13 @@ export function EndpointWizard({ onSuccess, onCancel }: EndpointWizardProps) {
   const canNext = (): boolean => {
     if (step === 0) return !!state.connection_id;
     if (step === 1) return !!state.sql_text.trim();
-    if (step === 3) return !!state.name.trim() && !!state.path.trim();
+    if (step === 3) {
+      // A public endpoint (no auth method) requires an explicit opt-in,
+      // mirroring the server-side 422 so the admin can't reach Review with
+      // an invalid configuration.
+      const authOk = !!state.auth_method_id || state.allow_unauthenticated;
+      return !!state.name.trim() && !!state.path.trim() && authOk;
+    }
     return true;
   };
 
@@ -122,6 +128,7 @@ export function EndpointWizard({ onSuccess, onCancel }: EndpointWizardProps) {
       param_schema: state.param_schema,
       column_map: state.column_map,
       auth_method_id: state.auth_method_id || null,
+      allow_unauthenticated: state.allow_unauthenticated,
       data_strategy: state.data_strategy,
     };
     createMutation.mutate(payload);

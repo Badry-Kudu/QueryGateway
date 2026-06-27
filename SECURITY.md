@@ -67,11 +67,19 @@ item-by-item list) plus the standards every change is expected to uphold.
 ### 3.1 Authentication & Authorization
 
 - Authentication on data endpoints (`/api/v1/data/*`) is configured **per
-  endpoint** and is optional: an endpoint is protected only when an auth method
-  is attached to it. An endpoint saved **without** an auth method is served
-  unauthenticated (public) by design — treat attaching an auth method as a
-  required step when the data is not meant to be public, and review endpoints
-  periodically for unintended public exposure.
+  endpoint**. An endpoint is protected only when an auth method is attached to
+  it. Serving an endpoint **without** an auth method (public/unauthenticated)
+  is allowed but must be a **deliberate, explicit choice**: the admin API
+  rejects a create or update that would leave an endpoint with no auth method
+  unless `allow_unauthenticated` is set to `true` (`422` otherwise). The data
+  plane enforces the same invariant at request time — an endpoint with no auth
+  method **and** no opt-in (e.g. after its referenced auth method is deleted,
+  which nulls the reference) **default-denies with `401`** instead of serving —
+  so an endpoint can never become silently public by omission or out-of-band.
+  Each request to a genuinely public (opted-in) endpoint is logged at `WARNING`
+  with `event="public_endpoint_served"`; the default-deny path logs
+  `event="unauthenticated_endpoint_denied"`. Review public endpoints
+  periodically for unintended exposure.
 - When an auth method **is** attached but is missing or inactive at request
   time, the endpoint **default-denies** with `401` (it never silently falls
   open). Expired or malformed credentials likewise return `401`, never `500`.
@@ -386,27 +394,24 @@ following gaps between this directive and the current CI
 
 | §4.9 control | Python (`backend/`) | Frontend (`frontend/`) | Docker (`docker/`) |
 |---|---|---|---|
-| Lockfile committed | `requirements.txt` present but **not hash-pinned** (no `--require-hashes`) | `package-lock.json` committed ✅ | base images **not digest-pinned** |
-| Locked install | `pip install -r` (not `--require-hashes`) | `npm ci` (not `--ignore-scripts`) | — |
-| Vuln scan in CI | **missing** (`pip-audit`) | **missing** (`npm audit`/`osv-scanner`) | **missing** (Trivy/Grype) |
-| Actions SHA-pinned | tags (`@v4`/`@v5`/`@v6`) — **not SHA** | tags — **not SHA** | tags — **not SHA** |
-| SBOM / signing | not generated | not generated | not generated/signed |
+| Lockfile committed | hash-pinned `requirements.lock` (uv `--generate-hashes`) ✅ | `package-lock.json` ✅ | base images digest-pinned (`@sha256`) ✅ |
+| Locked install | `pip install --require-hashes` (CI + image) ✅ | `npm ci --ignore-scripts` (CI + image) ✅ | — |
+| Vuln scan in CI | `pip-audit` build-failing ✅ + weekly `osv-scanner` | `npm audit --audit-level=high` build-failing ✅ + weekly `osv-scanner` | Trivy, fail on CRITICAL ✅ |
+| Actions SHA-pinned | full commit SHA + pin lint ✅ | full commit SHA + pin lint ✅ | full commit SHA + pin lint ✅ |
+| SBOM / signing | covered by image SBOM | covered by image SBOM | SBOM (syft, SPDX) per image ✅; image signing — not yet |
 
-Recommended next steps, in priority order (each its own reviewed PR):
+Status: the supply-chain hardening backlog is implemented in CI. Workflows:
+`backend.yml`, `frontend.yml`, `docker.yml` (build + Trivy + SBOM),
+`actions-lint.yml` (SHA-pin lint), `security-scan.yml` (weekly pip-audit /
+npm audit / osv-scanner), and `dependency-review.yml` (per-PR delta gate).
+`.github/CODEOWNERS` and `.github/dependabot.yml` are in place.
 
-1. Add `pip-audit` (backend) and `npm audit --audit-level=high` or
-   `osv-scanner` (frontend) as build-failing CI steps; add a **scheduled**
-   weekly run so dormant branches are re-checked (§4.9 currency).
-2. Pin all GitHub Actions to full commit SHA and add a pinning lint
-   (zizmor/ratchet).
-3. Hash-pin Python dependencies (uv or pip-tools) and install with
-   `pip --require-hashes`; run `npm ci --ignore-scripts` for the frontend.
-4. Digest-pin Docker base images, add Trivy image scanning that fails on
-   critical, and generate SBOMs (syft).
-5. Add `CODEOWNERS` covering dependency manifests, lockfiles, and
-   `.github/workflows/`; enable branch protection with required, non-bypassable
-   checks.
-6. Enable Dependabot/Renovate and the GitHub dependency-review gate on PRs.
+Remaining (require repo-admin, not settable from code — see
+[`docs/repository_governance.md`](docs/repository_governance.md)):
 
-Until enforced in CI, these controls are aspirational (§4.1.5) — treat the
-table above as the definition of "done" for supply-chain hardening.
+1. Enable branch protection on `main` with the new checks as **required,
+   non-bypassable** status checks, plus required Code Owner review.
+2. Enable the repository **Dependency graph** (so `dependency-review` passes)
+   and **Dependabot alerts** / secret scanning.
+3. **Image signing + provenance** (cosign / Sigstore attestation) — not yet
+   implemented; the images are scanned and have SBOMs but are not signed.

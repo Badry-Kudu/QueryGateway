@@ -10,6 +10,7 @@ or bcrypt-hashed (basic password, api_key).  Neither is ever returned to callers
 """
 
 import base64
+import hmac
 import uuid
 from collections.abc import Sequence
 from datetime import datetime
@@ -326,9 +327,14 @@ class AuthMethodService:
         cfg = obj.config_json
         stored_user = str(cfg.get("username", ""))
         stored_hash = str(cfg.get("password_hash", ""))
-        if username != stored_user:
-            return False
-        return verify_password(password, stored_hash)
+        # Run the bcrypt check and compare the username in constant time
+        # regardless of whether the username matched (mirrors
+        # app.auth.admin.authenticate_admin). An early return on a username
+        # mismatch would leak — via response timing — which usernames exist,
+        # enabling enumeration (L5).
+        password_ok = verify_password(password, stored_hash) if stored_hash else False
+        username_ok = hmac.compare_digest(username.encode(), stored_user.encode())
+        return username_ok and password_ok
 
     async def verify_api_key(self, auth_id: uuid.UUID, key: str) -> bool:
         """Verify an API key. Returns True on success."""

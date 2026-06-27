@@ -12,6 +12,7 @@ and import of the version modules rather than the Alembic API.
 
 import importlib
 import pathlib
+import re
 import uuid
 
 import pytest
@@ -20,6 +21,20 @@ import pytest
 
 
 MIGRATION_DIR = pathlib.Path("alembic/versions")
+
+
+def _extract(source: str, name: str) -> str | None:
+    """Return the literal value assigned to ``name`` in a migration module.
+
+    Handles ``name: <type> = "value"`` and ``name: <type> = None`` forms.
+    """
+    m = re.search(rf"^{name}\s*:[^=]*=\s*(.+)$", source, re.MULTILINE)
+    if m is None:
+        return None
+    value = m.group(1).strip()
+    if value == "None":
+        return None
+    return value.strip("\"'")
 
 
 class TestMigrationFileStructure:
@@ -101,6 +116,45 @@ class TestMigrationFileStructure:
         # Extract revision IDs from filenames (e.g., 0001_initial_schema.py → 0001)
         revisions = [f.stem.split("_")[0] for f in py_files]
         assert len(revisions) == len(set(revisions)), "Duplicate migration revision IDs"
+
+    def test_allow_unauthenticated_migration(self) -> None:
+        """M1: the SAME revision that references allow_unauthenticated must add
+        the endpoints column (upgrade) and drop it (downgrade) — i.e. it is
+        reversible in place, not just that some migration adds and another drops
+        a column."""
+        matches = [
+            f for f in MIGRATION_DIR.glob("*.py") if "allow_unauthenticated" in f.read_text()
+        ]
+        assert matches, "No migration references allow_unauthenticated"
+        for f in matches:
+            src = f.read_text()
+            assert "add_column" in src, f"{f.name} must add the column (upgrade)"
+            assert "drop_column" in src, f"{f.name} must drop the column (downgrade)"
+            assert "endpoints" in src, f"{f.name} must target the endpoints table"
+
+    def test_migration_chain_is_linear(self) -> None:
+        """The revision graph must be a single linear chain: exactly one base
+        (down_revision=None), exactly one head, and every down_revision known."""
+        revisions: dict[str, str | None] = {}
+        for f in MIGRATION_DIR.glob("*.py"):
+            src = f.read_text()
+            rev = _extract(src, "revision")
+            down = _extract(src, "down_revision")
+            assert rev is not None, f"{f.name} has no revision id"
+            revisions[rev] = down
+
+        bases = [r for r, d in revisions.items() if d is None]
+        assert len(bases) == 1, f"Expected exactly one base migration, found {bases}"
+        for rev, down in revisions.items():
+            if down is not None:
+                assert down in revisions, f"{rev} points at unknown down_revision {down}"
+
+        # A linear chain has exactly one head — a revision that no other
+        # revision lists as its down_revision. Two heads ⇒ a fork (branched
+        # history), which Alembic can't `upgrade head` unambiguously.
+        down_targets = {d for d in revisions.values() if d is not None}
+        heads = [r for r in revisions if r not in down_targets]
+        assert len(heads) == 1, f"Expected exactly one head (linear history), found {heads}"
 
 
 # ── Model–migration alignment tests ─────────────────────────────────────────

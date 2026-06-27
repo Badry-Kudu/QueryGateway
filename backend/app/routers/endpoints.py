@@ -25,6 +25,7 @@ from app.schemas.endpoint import (
     EndpointCreate,
     EndpointResponse,
     EndpointUpdate,
+    PublicEndpointError,
     SqlPreviewRequest,
     SqlPreviewResponse,
 )
@@ -71,6 +72,10 @@ async def create_endpoint(
 ) -> EndpointResponse:
     try:
         result = await svc.create_endpoint(payload)
+    except PublicEndpointError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
@@ -109,6 +114,10 @@ async def update_endpoint(
 ) -> EndpointResponse:
     try:
         result = await svc.update_endpoint(endpoint_id, payload)
+    except PublicEndpointError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)

@@ -1,0 +1,48 @@
+# Automated dependency-update PRs for update visibility (§4.9 currency).
+# Dependabot raises PRs; the same CI gates (pip-audit, npm audit, Trivy,
+# dependency-review, hash-pinned install) run on them. For Python, Dependabot
+# updates requirements.txt — regenerate the hashed lockfile afterwards with
+#   uv pip compile backend/requirements.txt --generate-hashes -o backend/requirements.lock
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:30"
+    open-pull-requests-limit: 10
+    groups:
+      python-deps:
+        patterns: ["*"]
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:30"
+    open-pull-requests-limit: 10
+    groups:
+      npm-deps:
+        patterns: ["*"]
+
+  - package-ecosystem: "docker"
+    # Both Dockerfiles live under docker/.
+    directory: "/docker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:30"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:30"
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns: ["*"]

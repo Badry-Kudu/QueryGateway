@@ -368,6 +368,7 @@ class TestMalformedRequests:
                 "path": _unique("orphan-data"),
                 "connection_id": str(uuid.uuid4()),
                 "sql_text": "SELECT 1 FROM dual",
+                "allow_unauthenticated": True,
             },
         )
         # Should fail — connection doesn't exist
@@ -391,12 +392,16 @@ class TestPathValidation:
         ],
     )
     def test_invalid_paths_rejected(self, path: str) -> None:
-        with pytest.raises(ValueError):
+        # allow_unauthenticated=True so the only thing that can fail is the
+        # path validator — not the public/auth invariant (keeps this test
+        # specifically about path rejection).
+        with pytest.raises(ValueError, match="lowercase alphanumeric"):
             EndpointCreate(
                 name="test",
                 path=path,
                 connection_id=uuid.uuid4(),
                 sql_text="SELECT 1 FROM dual",
+                allow_unauthenticated=True,
             )
 
     @pytest.mark.parametrize(
@@ -414,6 +419,7 @@ class TestPathValidation:
             path=path,
             connection_id=uuid.uuid4(),
             sql_text="SELECT 1 FROM dual",
+            allow_unauthenticated=True,
         )
         assert ep.path  # normalized
 
@@ -448,6 +454,7 @@ class TestDataEndpointParams:
                 "name": _unique("param-ep"),
                 "path": ep_path,
                 "connection_id": conn_id,
+                "allow_unauthenticated": True,
                 "sql_text": "SELECT * FROM t WHERE id = :id",
                 "param_schema": {
                     "id": {"type": "integer", "required": True},
@@ -483,6 +490,7 @@ class TestDataEndpointParams:
                 "name": _unique("type-ep"),
                 "path": ep_path,
                 "connection_id": conn_id,
+                "allow_unauthenticated": True,
                 "sql_text": "SELECT * FROM t WHERE id = :id",
                 "param_schema": {
                     "id": {"type": "integer", "required": True},

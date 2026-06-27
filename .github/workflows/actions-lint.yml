@@ -1,0 +1,30 @@
+name: Actions Pin Lint
+
+# Enforces §4.9: every GitHub Action `uses:` must be pinned to a full commit
+# SHA. Self-contained check (scripts/check_action_pins.py) — no third-party
+# linter to vet or pin in turn.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - "scripts/check_action_pins.py"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+jobs:
+  pin-lint:
+    name: Verify Actions are SHA-pinned
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Check action pins
+        run: python3 scripts/check_action_pins.py

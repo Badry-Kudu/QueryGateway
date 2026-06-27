@@ -168,6 +168,7 @@ class TestE2ELifecycleSmoke:
                 "connection_id": conn_id,
                 "sql_text": "SELECT 1 FROM dual",
                 "data_strategy": "snapshot",
+                "allow_unauthenticated": True,
             },
         )
         assert r.status_code == 201
@@ -225,6 +226,10 @@ class TestE2EAuthTypes:
         }
         if auth_id is not None:
             payload["auth_method_id"] = auth_id
+        else:
+            # No auth method: this endpoint is deliberately public, so it must
+            # opt in explicitly (M1).
+            payload["allow_unauthenticated"] = True
 
         r = await client.post("/api/v1/admin/endpoints/", json=payload)
         assert r.status_code == 201

@@ -11,9 +11,15 @@ import uuid
 from datetime import datetime
 from typing import Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.auth.hashing import validate_password_length
 from app.models.auth_method import AuthMethodType
+
+
+def _check_password_length(value: str | None) -> str | None:
+    """Apply the bcrypt 72-byte bound to an optional password field (L4)."""
+    return None if value is None else validate_password_length(value)
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
@@ -42,6 +48,8 @@ class AuthMethodCreate(BaseModel):
     # API-key-specific
     key_prefix: str = Field("db2api_", max_length=32)
 
+    _check_password = field_validator("password")(_check_password_length)
+
     @model_validator(mode="after")
     def validate_type_fields(self) -> Self:
         if self.method_type == AuthMethodType.basic:
@@ -68,6 +76,8 @@ class AuthMethodUpdate(BaseModel):
     # Basic — rotate password
     username: str | None = Field(None, min_length=1, max_length=255)
     password: str | None = Field(None, min_length=1)
+
+    _check_password = field_validator("password")(_check_password_length)
 
 
 # ── Read ──────────────────────────────────────────────────────────────────────

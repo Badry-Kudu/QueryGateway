@@ -105,15 +105,55 @@ class DataService:
         the appropriate status code; the caller (router + access log
         context) reads ``response.status_code`` to record outcomes.
         """
+        started_at = time.perf_counter()
         endpoint = await self._resolve_endpoint(path)
         principal: str | None = None
         if endpoint.auth_method_id is not None:
             principal = await self._enforce_auth(request, endpoint.auth_method_id)
+        elif not endpoint.allow_unauthenticated:
+            # No auth method AND no explicit opt-in. EndpointCreate/Update both
+            # reject this combination, but it can still arise out-of-band — most
+            # importantly when an auth method an endpoint references is deleted
+            # (the FK is ondelete=SET NULL), which would otherwise silently turn
+            # a previously protected endpoint public. Default-deny rather than
+            # serve it unauthenticated (closes the M1 deletion side-channel).
+            log.warning(
+                "unauthenticated_endpoint_denied",
+                endpoint_id=str(endpoint.id),
+                endpoint=path,
+                user="anonymous",
+                status=status.HTTP_401_UNAUTHORIZED,
+                method=request.method,
+                client_ip=request.client.host if request.client else None,
+                request_id=resolve_request_id(request),
+                duration_ms=round((time.perf_counter() - started_at) * 1000, 2),
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication configuration is unavailable.",
+            )
 
         if endpoint.data_strategy.value == "snapshot":
             response = await self._serve_snapshot(endpoint, path, principal)
         else:
             response = await self._serve_live(endpoint, request, path, principal)
+
+        if endpoint.auth_method_id is None:
+            # Reached only for an explicitly public endpoint (the default-deny
+            # branch above already returned). Audit every public hit with the
+            # full structured-log field set (§3.5); ``allow_unauthenticated`` is
+            # always True here.
+            log.warning(
+                "public_endpoint_served",
+                endpoint_id=str(endpoint.id),
+                endpoint=path,
+                user=principal or "anonymous",
+                status=response.status_code,
+                method=request.method,
+                client_ip=request.client.host if request.client else None,
+                request_id=resolve_request_id(request),
+                duration_ms=round((time.perf_counter() - started_at) * 1000, 2),
+            )
 
         return DataServiceResult(
             response=response,
@@ -192,15 +232,14 @@ class DataService:
             return username
 
         if method_type == "api_key":
-            api_key = (
-                request.headers.get("X-Api-Key")
-                or request.query_params.get("api_key")
-                or ""
-            )
+            # Header only: a key in the query string leaks via proxy/access
+            # logs, browser history, and the Referer header (L1). The
+            # query-param fallback was removed deliberately.
+            api_key = request.headers.get("X-Api-Key", "")
             if not api_key:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="API key required (X-Api-Key header or ?api_key= query param).",
+                    detail="API key required (X-Api-Key header).",
                 )
             ok = await svc.verify_api_key(auth_method_id, api_key)
             if not ok:
