@@ -68,7 +68,7 @@ Comprehensive security validation for QueryGateway production deployments. All i
 
 | # | Check | Status | Notes |
 |---|-------|--------|-------|
-| 38 | CORS configured and restrictable via `CORS_ORIGINS` setting | Verified | Default `*` for development; restrict in production |
+| 38 | CORS configured and restrictable via `CORS_ORIGINS` setting | Verified | Default is `http://localhost:5173` (local dev), not `*`; list explicit origins in production. `allow_credentials=True`, so never set `CORS_ORIGINS=*` |
 | 39 | `WWW-Authenticate` headers sent on 401 responses | Verified | Bearer and Basic auth return appropriate challenge headers |
 | 40 | Request correlation IDs present in all structured logs | Verified | `RequestLoggingMiddleware` attaches `request_id` |
 

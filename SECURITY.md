@@ -66,8 +66,15 @@ item-by-item list) plus the standards every change is expected to uphold.
 
 ### 3.1 Authentication & Authorization
 
-- Data endpoints (`/api/v1/data/*`) enforce per-endpoint authentication;
-  unconfigured or inactive auth methods **default-deny** with `401`.
+- Authentication on data endpoints (`/api/v1/data/*`) is configured **per
+  endpoint** and is optional: an endpoint is protected only when an auth method
+  is attached to it. An endpoint saved **without** an auth method is served
+  unauthenticated (public) by design — treat attaching an auth method as a
+  required step when the data is not meant to be public, and review endpoints
+  periodically for unintended public exposure.
+- When an auth method **is** attached but is missing or inactive at request
+  time, the endpoint **default-denies** with `401` (it never silently falls
+  open). Expired or malformed credentials likewise return `401`, never `500`.
 - JWTs are created and verified with **`PyJWT` only**. Every token carries
   `exp`, `iat`, and a subject claim; expired or malformed tokens are rejected
   deterministically with `401` (never `500`).
@@ -141,10 +148,22 @@ item-by-item list) plus the standards every change is expected to uphold.
 
 - Terminate **HTTPS** at the reverse proxy (nginx/ALB/Cloudflare); do not serve
   the API over plaintext in production.
-- Restrict **CORS** via `CORS_ORIGINS` in production (the development default of
-  `*` must not ship).
-- Set `DEBUG=false` in production. Restrict PostgreSQL access to the application
-  network. Keep the deployment "Action Required" items in
+- **Run the app behind the reverse proxy with forwarded-header trust enabled.**
+  When a proxy fronts the app, start uvicorn with `--proxy-headers` and
+  `--forwarded-allow-ips` scoped to the proxy's address/subnet so the real
+  client IP from `X-Forwarded-For` reaches the audit trail. Without this,
+  `access_logs.remote_ip` and the structured-log `client_ip` record the
+  proxy's address instead of the client's, defeating §3.4/§3.5 forensics.
+- Restrict **CORS** via `CORS_ORIGINS` in production. The default is a local
+  development origin (`http://localhost:5173`). **Never combine a wildcard
+  origin (`CORS_ORIGINS=*`) with credentialed requests** — the app sends
+  `allow_credentials=True`, and a wildcard origin under credentials makes the
+  middleware reflect *any* Origin, which is a cross-origin data-theft vector.
+  List explicit origins in production.
+- Set `DEBUG=false` in production, and consider disabling the interactive API
+  docs (`/api/docs`, `/api/redoc`, `/api/openapi.json`) in production so the
+  full admin API schema is not exposed. Restrict PostgreSQL access to the
+  application network. Keep the deployment "Action Required" items in
   [`docs/security_checklist.md`](docs/security_checklist.md) verified per
   installation.
 

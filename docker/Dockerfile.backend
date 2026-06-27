@@ -30,4 +30,12 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --proxy-headers + --forwarded-allow-ips lets uvicorn trust the
+# X-Forwarded-For/X-Real-IP set by the nginx reverse proxy, so the real
+# client IP (not the proxy's container IP) is what reaches the access log
+# and structured logs. In this compose topology the backend is only
+# reachable via the frontend/nginx service on the internal network, so
+# trusting all upstreams ("*") is safe; if the backend is ever exposed
+# directly, narrow this to the proxy's subnet.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", \
+     "--proxy-headers", "--forwarded-allow-ips", "*"]
