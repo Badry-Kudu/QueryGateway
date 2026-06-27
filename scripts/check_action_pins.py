@@ -41,21 +41,34 @@ def main() -> int:
                 problems.append((wf, lineno, ref, "missing @<commit-sha|sha256-digest>"))
                 continue
             pin = ref.rsplit("@", 1)[1]
-            if not (SHA_RE.match(pin) or DIGEST_RE.match(pin)):
+            # The expected immutable form depends on the ref type:
+            #   docker://image  → an ``@sha256:<64-hex>`` OCI digest
+            #   every other ref → a full 40-character git commit SHA
+            # GitHub Actions cannot be resolved by an OCI digest, so accepting a
+            # ``sha256:`` suffix on a non-docker ref would be a false pass — a
+            # hole in the gate. Select the matcher by ref type instead of
+            # accepting either form for any ref.
+            if ref.startswith("docker://"):
+                if not DIGEST_RE.match(pin):
+                    problems.append(
+                        (wf, lineno, ref, "docker:// ref must be pinned by @sha256:<digest>")
+                    )
+            elif not SHA_RE.match(pin):
                 problems.append(
-                    (wf, lineno, ref, "ref is not a full commit SHA or sha256 digest")
+                    (wf, lineno, ref, "ref is not a full 40-character commit SHA")
                 )
 
     for wf, lineno, ref, why in problems:
-        print(f"::error file={wf},line={lineno}::Action not SHA-pinned ({why}): {ref}")
+        print(f"::error file={wf},line={lineno}::Action not pinned to an immutable ref ({why}): {ref}")
 
     if problems:
         print(
-            f"\n{len(problems)} unpinned action reference(s). Pin every `uses:` to a "
-            "full 40-character commit SHA (keep a `# vX.Y.Z` comment for readability)."
+            f"\n{len(problems)} unpinned action reference(s). Pin every GitHub Action "
+            "`uses:` to a full 40-character commit SHA, and every `docker://` ref by "
+            "`@sha256:` digest (keep a `# vX.Y.Z` comment for readability)."
         )
         return 1
-    print("OK: every GitHub Action is pinned to a full commit SHA.")
+    print("OK: every `uses:` ref is pinned to an immutable commit SHA or digest.")
     return 0
 
 
