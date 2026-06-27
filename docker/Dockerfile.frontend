@@ -1,5 +1,7 @@
-# Build stage
-FROM node:20-slim AS builder
+# Build stage — base images pinned by digest (§4.6/§4.8); readable tag kept.
+# Refresh deliberately with:
+#   docker buildx imagetools inspect <image:tag> --format '{{.Manifest.Digest}}'
+FROM node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS builder
 
 WORKDIR /app
 
@@ -11,8 +13,8 @@ RUN npm ci --ignore-scripts
 COPY frontend/ .
 RUN npm run build
 
-# Production stage — serve with nginx
-FROM nginx:1.27-alpine AS production
+# Production stage — serve with nginx (digest-pinned)
+FROM nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 AS production
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 

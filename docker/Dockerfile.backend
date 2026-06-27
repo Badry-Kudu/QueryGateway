@@ -1,4 +1,8 @@
-FROM python:3.14-slim AS base
+# Base image pinned by digest (§4.6/§4.8): the readable tag stays for clarity,
+# the @sha256 makes the pull immutable. Refresh the digest deliberately when
+# bumping the tag. Resolve a current one with:
+#   docker buildx imagetools inspect python:3.14-slim --format '{{.Manifest.Digest}}'
+FROM python:3.14-slim@sha256:63a4c7f612a00f92042cbdcc7cdc6a306f38485af0a200b9c89de7d9b1607d15 AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
