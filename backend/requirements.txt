@@ -39,5 +39,5 @@ pytest-asyncio==1.4.0
 pytest-cov==7.1.0
 
 # Linting and type checking
-ruff==0.14.0
-mypy==1.14.0
+ruff==0.15.20
+mypy==2.1.0
