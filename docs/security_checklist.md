@@ -68,7 +68,7 @@ Comprehensive security validation for QueryGateway production deployments. All i
 
 | # | Check | Status | Notes |
 |---|-------|--------|-------|
-| 38 | CORS configured and restrictable via `CORS_ORIGINS` setting | Verified | Default is `http://localhost:5173` (local dev), not `*`; list explicit origins in production. `allow_credentials=True`, so never set `CORS_ORIGINS=*` |
+| 38 | CORS configured and restrictable via `CORS_ORIGINS` setting | Verified | Default is `http://localhost:5173` (local dev), not `*`; list explicit origins in production. `allow_credentials=True`, so never set `CORS_ORIGINS=*` — the app now **refuses to boot** if `CORS_ORIGINS` contains `*` (M3, validated at startup) |
 | 39 | `WWW-Authenticate` headers sent on 401 responses | Verified | Bearer and Basic auth return appropriate challenge headers |
 | 40 | Request correlation IDs present in all structured logs | Verified | `RequestLoggingMiddleware` attaches `request_id` |
 
@@ -90,13 +90,42 @@ Comprehensive security validation for QueryGateway production deployments. All i
 | 47 | `DATABASE_URL` credentials not logged | Verified | Pydantic Settings marks as secret type |
 | 48 | HTTPS termination configured at reverse proxy | Action Required | Configure nginx/ALB/Cloudflare |
 | 49 | PostgreSQL access restricted to application network | Action Required | Firewall/security group rules |
-| 50 | Container images scanned for vulnerabilities | Action Required | Add Trivy/Snyk to CI pipeline |
+| 50 | Container images scanned for vulnerabilities | Verified | Trivy scans both images in CI (`docker.yml`), fails on fixable CRITICAL; per-image SPDX SBOMs generated with Syft |
+
+## Application Hardening (audit findings M1, M3, L1–L5)
+
+| # | Check | Status | Notes |
+|---|-------|--------|-------|
+| 51 | Public (no-auth) endpoints require explicit opt-in | Verified | M1: create/update rejects `auth_method_id=None` without `allow_unauthenticated=true` (422); data plane logs `public_endpoint_served` WARNING |
+| 52 | App refuses to boot with wildcard CORS under credentials | Verified | M3: `cors_origins` validator rejects `*` at startup |
+| 53 | API keys accepted only via header, not query string | Verified | L1: `X-Api-Key` only; `?api_key=` fallback removed |
+| 54 | Sensitive keys redacted at the logging boundary | Verified | L2: structlog processor masks password/secret/token/api_key/key/authorization/signing_secret |
+| 55 | Interactive API docs disabled in production | Verified | L3: `docs/redoc/openapi` URLs are `None` when `APP_ENV=production` |
+| 56 | Password inputs bounded to bcrypt's 72-byte limit | Verified | L4: schema-level rejection (422) on admin login + basic-auth password |
+| 57 | Constant-time username comparison in data-plane Basic auth | Verified | L5: `hmac.compare_digest` + always-run bcrypt in `verify_basic` |
+
+## Supply-Chain Security (SECURITY.md §4.9)
+
+| # | Check | Status | Notes |
+|---|-------|--------|-------|
+| 58 | Python deps hash-pinned; locked install | Verified | `requirements.lock` (uv `--generate-hashes`); `pip install --require-hashes` in CI + image |
+| 59 | Backend/frontend vulnerability gates fail the build | Verified | `pip-audit` and `npm audit --audit-level=high`; weekly `osv-scanner` over the tree |
+| 60 | npm install runs with `--ignore-scripts` | Verified | CI and `Dockerfile.frontend` (blocks install-time script execution) |
+| 61 | GitHub Actions pinned to full commit SHA | Verified | All workflows; enforced by `scripts/check_action_pins.py` in `actions-lint.yml` |
+| 62 | Dependabot + dependency-review + CODEOWNERS | Verified | `dependabot.yml` (pip/npm/docker/actions); SHA-pinned `dependency-review` PR gate; `CODEOWNERS` on manifests/lockfiles/workflows |
+| 63 | Branch protection with required, non-bypassable checks | Action Required | Repo-admin only — settings documented in [repository_governance.md](repository_governance.md) |
+| 64 | Container image signing + provenance | Action Required | Images scanned + SBOM'd, not yet signed (cosign/Sigstore) |
 
 ## Summary
 
-- **Verified items**: 44/50
-- **Action required (deployment config)**: 6/50
+- **Verified items**: 57/64
+- **Action required**: 7/64
 - **High-severity unresolved findings**: 0
 - **All code-level security controls validated through automated tests**
 
-The 6 "Action Required" items are deployment-environment-specific configurations that must be verified per installation. They are documented in the [Deployment Runbook](deployment.md).
+The 7 "Action Required" items are environment/repo-admin configurations that
+must be applied per installation: the original deployment-config items
+(`DEBUG=false`, `ENCRYPTION_KEY` in a secrets manager, HTTPS termination,
+PostgreSQL network isolation — see the [Deployment Runbook](deployment.md))
+plus branch protection and image signing (#63–#64 — see
+[repository_governance.md](repository_governance.md)).
