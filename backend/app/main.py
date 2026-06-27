@@ -75,7 +75,7 @@ def _init_oracle_client() -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """Application startup / shutdown lifecycle."""
     configure_logging(settings.log_level)
     log.info(

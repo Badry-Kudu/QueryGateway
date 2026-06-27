@@ -3,7 +3,7 @@
 > A self-hosted platform that turns Oracle SQL queries into secure, versioned REST API endpoints — no application code required. Author a parameterized query in a guided wizard, attach authentication, choose a data-freshness strategy, and publish a live endpoint that other systems can consume.
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE.txt)
-[![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.14%2B-blue.svg)](https://www.python.org/)
 [![Backend CI](https://github.com/Badry-Kudu/QueryGateway/actions/workflows/backend.yml/badge.svg)](https://github.com/Badry-Kudu/QueryGateway/actions/workflows/backend.yml)
 [![Frontend CI](https://github.com/Badry-Kudu/QueryGateway/actions/workflows/frontend.yml/badge.svg)](https://github.com/Badry-Kudu/QueryGateway/actions/workflows/frontend.yml)
 [![Docker Build](https://github.com/Badry-Kudu/QueryGateway/actions/workflows/docker.yml/badge.svg)](https://github.com/Badry-Kudu/QueryGateway/actions/workflows/docker.yml)
@@ -100,7 +100,7 @@ All routes are versioned from day one; breaking contract changes are introduced 
 - Deployment: Ubuntu/Linux (recommended)
 - Docker workflow: supported on both Windows (Docker Desktop) and Ubuntu/Linux
 
-> **Python version:** Python 3.12 or 3.13 is required. Python 3.14 is not yet supported — `asyncpg` does not have stable wheels for CPython 3.14. If you have Python 3.14 installed, install Python 3.12 or 3.13 and create the virtual environment with the correct interpreter: `py -3.12 -m venv .venv` (Windows) or `python3.12 -m venv .venv` (Linux).
+> **Python version:** Python 3.14 or newer is required (`asyncpg` 0.31.0+ ships CPython 3.14 wheels). Create the virtual environment with a 3.14 interpreter: `py -3.14 -m venv .venv` (Windows) or `python3.14 -m venv .venv` (Linux).
 
 ## Quick Start
 
@@ -121,7 +121,7 @@ make docker-up
 
 ## Local Run (Without Docker)
 
-> **Python version:** Use Python 3.12 or 3.13. Python 3.14 is not yet supported (`asyncpg` has no wheels for CPython 3.14).
+> **Python version:** Use Python 3.14 or newer (`asyncpg` 0.31.0+ provides CPython 3.14 wheels).
 >
 > **Note (Windows):** `psycopg2-binary` may fail to build from source if PostgreSQL dev tools are not installed. The `requirements.txt` uses a relaxed pin (`>=2.9.9`) so pip selects a pre-built wheel automatically. Always run `pip install --upgrade pip` first.
 
@@ -136,7 +136,7 @@ docker run -d --name db2api-pg `
 
 # Step 2 — Backend
 cd backend
-py -3.12 -m venv .venv
+py -3.14 -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install --upgrade pip
 pip install -r requirements.txt
@@ -168,7 +168,7 @@ docker run -d --name db2api-pg \
 
 # Step 2 — Backend
 cd backend
-python3.12 -m venv .venv
+python3.14 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
@@ -256,7 +256,7 @@ Contributions are welcome — whether that's code, docs, bug reports, or ideas.
 
 | Layer | Technologies |
 |-------|-------------|
-| Backend | Python 3.12+, FastAPI, SQLAlchemy 2.0, Alembic, APScheduler 3.x, PyJWT, bcrypt, structlog |
+| Backend | Python 3.14+, FastAPI, SQLAlchemy 2.0, Alembic, APScheduler 3.x, PyJWT, bcrypt, structlog |
 | Frontend | Vite 6, React 18, TypeScript, shadcn/ui, Tailwind CSS 3, Vitest |
 | App DB | PostgreSQL 16 (asyncpg) |
 | Data Source | Oracle (python-oracledb thin mode) |

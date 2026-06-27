@@ -59,7 +59,7 @@
 
 ### Backend (Python)
 
-- Python 3.12+ syntax and type annotations throughout.
+- Python 3.14+ syntax and type annotations throughout.
 - `ruff` enforces style and security linting (`ruff check .`).
 - `mypy --strict` enforces type correctness.
 - 100-character line limit.

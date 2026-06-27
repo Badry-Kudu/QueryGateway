@@ -8,6 +8,7 @@ Public contract rules:
 
 import uuid
 from datetime import datetime
+from typing import Self
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -38,7 +39,7 @@ class ConnectionBase(BaseModel):
     is_active: bool = True
 
     @model_validator(mode="after")
-    def require_service_name_or_sid(self) -> "ConnectionBase":
+    def require_service_name_or_sid(self) -> Self:
         if not self.service_name and not self.sid:
             raise ValueError("Exactly one of service_name or sid must be provided.")
         if self.service_name and self.sid:
@@ -46,7 +47,7 @@ class ConnectionBase(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def pool_min_le_max(self) -> "ConnectionBase":
+    def pool_min_le_max(self) -> Self:
         if self.pool_min > self.pool_max:
             raise ValueError("pool_min must be ≤ pool_max.")
         return self
@@ -88,7 +89,7 @@ class ConnectionUpdate(BaseModel):
     is_active: bool | None = None
 
     @model_validator(mode="after")
-    def identifier_invariant(self) -> "ConnectionUpdate":
+    def identifier_invariant(self) -> Self:
         """Reject payloads that set both identifiers or clear both explicitly."""
         provided = self.model_fields_set & {"service_name", "sid"}
         if len(provided) < 2:

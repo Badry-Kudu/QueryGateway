@@ -8,7 +8,7 @@
 - Monorepo directory skeleton: `backend/`, `frontend/`, `docker/`, `docs/`
 - Backend: FastAPI skeleton, Pydantic Settings v2, `requirements.txt`, `pyproject.toml` (ruff/mypy/pytest)
 - Frontend: Vite 6 + React 18 + TypeScript, Tailwind CSS, shadcn/ui CSS vars, ESLint, Prettier, Vitest; `vite.config.ts` (ESM-safe, `import.meta.url`), `vitest.config.ts` (separate to avoid vitest/vite type conflict)
-- Docker: `Dockerfile.backend` (python:3.12-slim + curl), `Dockerfile.frontend` (multi-stage + nginx), `docker-compose.yml` (`api`/`web`/`db` + optional `oracle` profile)
+- Docker: `Dockerfile.backend` (python:3.14-slim + curl), `Dockerfile.frontend` (multi-stage + nginx), `docker-compose.yml` (`api`/`web`/`db` + optional `oracle` profile)
 - GitHub Actions: `backend.yml` (ruff/mypy/pytest + Postgres service), `frontend.yml` (eslint/prettier/vitest/build), `docker.yml` (image builds + compose config validate)
 - Docs: `docs/architecture.md`, `docs/contributing.md`, `docs/conventions.md`, root `Makefile`, `.env.example`, `.gitignore`
 
