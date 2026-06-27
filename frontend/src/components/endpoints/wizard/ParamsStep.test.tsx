@@ -14,6 +14,7 @@ function makeState(params: WizardState["param_schema"]): WizardState {
     param_schema: params,
     column_map: {},
     auth_method_id: "",
+    allow_unauthenticated: false,
     data_strategy: "live",
   };
 }

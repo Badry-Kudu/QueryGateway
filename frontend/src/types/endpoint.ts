@@ -19,6 +19,7 @@ export interface Endpoint {
   param_schema: Record<string, ParamDescriptor>;
   column_map: Record<string, string>;
   auth_method_id: string | null;
+  allow_unauthenticated: boolean;
   data_strategy: DataStrategy;
   version: string;
   is_active: boolean;
@@ -37,6 +38,8 @@ export interface EndpointCreate {
   param_schema?: Record<string, ParamDescriptor>;
   column_map?: Record<string, string>;
   auth_method_id?: string | null;
+  /** Explicit opt-in to a public (unauthenticated) endpoint; required when auth_method_id is null. */
+  allow_unauthenticated?: boolean;
   data_strategy?: DataStrategy;
   is_active?: boolean;
 }
@@ -50,6 +53,7 @@ export interface EndpointUpdate {
   param_schema?: Record<string, ParamDescriptor>;
   column_map?: Record<string, string>;
   auth_method_id?: string | null;
+  allow_unauthenticated?: boolean;
   data_strategy?: DataStrategy;
   is_active?: boolean;
   is_deprecated?: boolean;

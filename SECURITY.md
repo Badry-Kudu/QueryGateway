@@ -67,11 +67,14 @@ item-by-item list) plus the standards every change is expected to uphold.
 ### 3.1 Authentication & Authorization
 
 - Authentication on data endpoints (`/api/v1/data/*`) is configured **per
-  endpoint** and is optional: an endpoint is protected only when an auth method
-  is attached to it. An endpoint saved **without** an auth method is served
-  unauthenticated (public) by design — treat attaching an auth method as a
-  required step when the data is not meant to be public, and review endpoints
-  periodically for unintended public exposure.
+  endpoint**. An endpoint is protected only when an auth method is attached to
+  it. Serving an endpoint **without** an auth method (public/unauthenticated)
+  is allowed but must be a **deliberate, explicit choice**: the admin API
+  rejects a create or update that would leave an endpoint with no auth method
+  unless `allow_unauthenticated` is set to `true` (`422` otherwise), so an
+  endpoint can never become silently public by omission. Every request to a
+  public endpoint is logged at `WARNING` with `event="public_endpoint_served"`
+  for audit; review those endpoints periodically for unintended exposure.
 - When an auth method **is** attached but is missing or inactive at request
   time, the endpoint **default-denies** with `401` (it never silently falls
   open). Expired or malformed credentials likewise return `401`, never `500`.

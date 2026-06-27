@@ -18,10 +18,12 @@ from app.models.endpoint import ApiEndpoint
 from app.repositories.connection import ConnectionRepository
 from app.repositories.endpoint import EndpointRepository
 from app.schemas.endpoint import (
+    PUBLIC_OPT_IN_MESSAGE,
     EndpointCreate,
     EndpointResponse,
     EndpointUpdate,
     ParamDescriptor,
+    PublicEndpointError,
     SqlPreviewRequest,
     SqlPreviewResponse,
     extract_bind_params,
@@ -54,6 +56,7 @@ def _to_response(obj: ApiEndpoint) -> EndpointResponse:
         param_schema=param_schema,
         column_map=column_map,
         auth_method_id=obj.auth_method_id,
+        allow_unauthenticated=obj.allow_unauthenticated,
         data_strategy=obj.data_strategy,
         version=obj.version,
         is_active=obj.is_active,
@@ -116,6 +119,7 @@ class EndpointService:
             param_schema_json=param_json,
             column_map_json=col_map_json,
             auth_method_id=payload.auth_method_id,
+            allow_unauthenticated=payload.allow_unauthenticated,
             data_strategy=payload.data_strategy,
             is_active=payload.is_active,
         )
@@ -148,6 +152,7 @@ class EndpointService:
             "connection_id",
             "sql_text",
             "auth_method_id",
+            "allow_unauthenticated",
             "data_strategy",
             "is_active",
             "is_deprecated",
@@ -157,6 +162,25 @@ class EndpointService:
             field: getattr(payload, field)
             for field in payload.model_fields_set & _updatable
         }
+
+        # M1: an update that touches the auth posture must not leave the
+        # endpoint unauthenticated without an explicit opt-in. Evaluate the
+        # MERGED state (payload over stored row) so detaching the auth method
+        # without setting allow_unauthenticated=true is rejected (422), while
+        # unrelated edits to an already-public endpoint are left untouched.
+        if payload.model_fields_set & {"auth_method_id", "allow_unauthenticated"}:
+            effective_auth = (
+                payload.auth_method_id
+                if "auth_method_id" in payload.model_fields_set
+                else obj.auth_method_id
+            )
+            effective_public = (
+                payload.allow_unauthenticated
+                if "allow_unauthenticated" in payload.model_fields_set
+                else obj.allow_unauthenticated
+            )
+            if effective_auth is None and not effective_public:
+                raise PublicEndpointError(PUBLIC_OPT_IN_MESSAGE)
 
         # Uniqueness check on name change
         if payload.name is not None and payload.name != obj.name:

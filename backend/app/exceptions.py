@@ -7,6 +7,7 @@ leaked in 5xx responses — only the structured log carries full context.
 
 import structlog
 from fastapi import Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -24,12 +25,23 @@ async def http_exception_handler(request: Request, exc: Exception) -> JSONRespon
 
 
 async def validation_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Handle Pydantic request-body validation errors (422)."""
+    """Handle Pydantic request-body validation errors (422).
+
+    ``exc.errors()`` can embed a non-JSON-serializable object in each
+    error's ``ctx`` (e.g. the original ``ValueError`` raised by a Pydantic
+    ``model_validator``/``field_validator``). Passing that straight to
+    ``JSONResponse`` raises ``TypeError`` and turns a 422 into a 500, which
+    violates §3.4 (invalid input must return 422, never 500). Run the errors
+    through ``jsonable_encoder`` first — matching FastAPI's own default
+    handler — so those contexts are coerced to strings and the response is
+    always serializable.
+    """
     assert isinstance(exc, RequestValidationError)
-    log.warning("request_validation_error", errors=exc.errors())
+    errors = jsonable_encoder(exc.errors())
+    log.warning("request_validation_error", errors=errors)
     return JSONResponse(
         status_code=422,
-        content={"detail": exc.errors()},
+        content={"detail": errors},
     )
 
 

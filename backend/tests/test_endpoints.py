@@ -80,6 +80,7 @@ def test_endpoint_create_valid() -> None:
         connection_id=conn_id,
         sql_text="SELECT * FROM employees WHERE dept_id = :dept_id",
         param_schema={"dept_id": {"type": "integer", "required": True}},
+        allow_unauthenticated=True,
     )
     assert payload.name == "test-endpoint"
     assert payload.path == "employees"
@@ -93,6 +94,7 @@ def test_endpoint_create_normalizes_path() -> None:
         path="/My-Endpoint/",
         connection_id=conn_id,
         sql_text="SELECT 1 FROM dual",
+        allow_unauthenticated=True,
     )
     assert payload.path == "my-endpoint"
 
@@ -185,6 +187,7 @@ async def test_create_endpoint(async_client: object) -> None:
         "param_schema": {
             "dept_id": {"type": "integer", "required": True},
         },
+        "allow_unauthenticated": True,
     }
     response = await client.post("/api/v1/admin/endpoints/", json=ep_payload)
     assert response.status_code == 201
@@ -218,6 +221,7 @@ async def test_create_duplicate_name_returns_409(async_client: object) -> None:
         "path": f"dup-path-{uuid.uuid4().hex[:8]}",
         "connection_id": conn_id,
         "sql_text": "SELECT 1 FROM dual",
+        "allow_unauthenticated": True,
     }
     r1 = await client.post("/api/v1/admin/endpoints/", json=ep_payload)
     assert r1.status_code == 201
@@ -249,6 +253,7 @@ async def test_create_duplicate_path_returns_409(async_client: object) -> None:
         "path": ep_path,
         "connection_id": conn_id,
         "sql_text": "SELECT 1 FROM dual",
+        "allow_unauthenticated": True,
     }
     r1 = await client.post("/api/v1/admin/endpoints/", json=ep_payload)
     assert r1.status_code == 201
@@ -290,6 +295,7 @@ async def test_list_endpoints(async_client: object) -> None:
         "path": f"list-path-{uuid.uuid4().hex[:8]}",
         "connection_id": conn_id,
         "sql_text": "SELECT 1 FROM dual",
+        "allow_unauthenticated": True,
     }
     await client.post("/api/v1/admin/endpoints/", json=ep_payload)
 
@@ -321,6 +327,7 @@ async def test_update_endpoint(async_client: object) -> None:
         "path": f"upd-path-{uuid.uuid4().hex[:8]}",
         "connection_id": conn_id,
         "sql_text": "SELECT 1 FROM dual",
+        "allow_unauthenticated": True,
     }
     r = await client.post("/api/v1/admin/endpoints/", json=ep_payload)
     assert r.status_code == 201
@@ -355,6 +362,7 @@ async def test_delete_endpoint(async_client: object) -> None:
         "path": f"del-path-{uuid.uuid4().hex[:8]}",
         "connection_id": conn_id,
         "sql_text": "SELECT 1 FROM dual",
+        "allow_unauthenticated": True,
     }
     r = await client.post("/api/v1/admin/endpoints/", json=ep_payload)
     assert r.status_code == 201

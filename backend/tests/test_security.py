@@ -368,6 +368,7 @@ class TestMalformedRequests:
                 "path": _unique("orphan-data"),
                 "connection_id": str(uuid.uuid4()),
                 "sql_text": "SELECT 1 FROM dual",
+                "allow_unauthenticated": True,
             },
         )
         # Should fail — connection doesn't exist
@@ -414,6 +415,7 @@ class TestPathValidation:
             path=path,
             connection_id=uuid.uuid4(),
             sql_text="SELECT 1 FROM dual",
+            allow_unauthenticated=True,
         )
         assert ep.path  # normalized
 
@@ -448,6 +450,7 @@ class TestDataEndpointParams:
                 "name": _unique("param-ep"),
                 "path": ep_path,
                 "connection_id": conn_id,
+                "allow_unauthenticated": True,
                 "sql_text": "SELECT * FROM t WHERE id = :id",
                 "param_schema": {
                     "id": {"type": "integer", "required": True},
@@ -483,6 +486,7 @@ class TestDataEndpointParams:
                 "name": _unique("type-ep"),
                 "path": ep_path,
                 "connection_id": conn_id,
+                "allow_unauthenticated": True,
                 "sql_text": "SELECT * FROM t WHERE id = :id",
                 "param_schema": {
                     "id": {"type": "integer", "required": True},

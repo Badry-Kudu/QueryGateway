@@ -109,6 +109,19 @@ class DataService:
         principal: str | None = None
         if endpoint.auth_method_id is not None:
             principal = await self._enforce_auth(request, endpoint.auth_method_id)
+        else:
+            # No auth method attached: the endpoint is served unauthenticated.
+            # Emit a WARNING on every public hit so unintended public exposure
+            # surfaces in the audit trail (M1). ``allow_unauthenticated`` is
+            # the admin's explicit opt-in recorded at create/update time.
+            # structlog maps the positional message to the mandatory ``event``
+            # field, so it must not be passed again as a keyword.
+            log.warning(
+                "public_endpoint_served",
+                endpoint_id=str(endpoint.id),
+                path=path,
+                allow_unauthenticated=endpoint.allow_unauthenticated,
+            )
 
         if endpoint.data_strategy.value == "snapshot":
             response = await self._serve_snapshot(endpoint, path, principal)

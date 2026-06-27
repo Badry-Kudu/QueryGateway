@@ -155,6 +155,7 @@ async def test_create_schedule(async_client: object) -> None:
         "name": f"sched-ep-{uuid.uuid4().hex[:8]}",
         "path": f"sched-path-{uuid.uuid4().hex[:8]}",
         "connection_id": conn_id,
+        "allow_unauthenticated": True,
         "sql_text": "SELECT 1 FROM dual",
         "data_strategy": "snapshot",
     }
@@ -198,6 +199,7 @@ async def test_create_duplicate_schedule_returns_409(async_client: object) -> No
         "name": f"dup-sched-ep-{uuid.uuid4().hex[:8]}",
         "path": f"dup-sched-path-{uuid.uuid4().hex[:8]}",
         "connection_id": conn_id,
+        "allow_unauthenticated": True,
         "sql_text": "SELECT 1 FROM dual",
         "data_strategy": "snapshot",
     }
@@ -259,6 +261,7 @@ async def test_update_schedule(async_client: object) -> None:
         "name": f"upd-sched-ep-{uuid.uuid4().hex[:8]}",
         "path": f"upd-sched-path-{uuid.uuid4().hex[:8]}",
         "connection_id": conn_id,
+        "allow_unauthenticated": True,
         "sql_text": "SELECT 1 FROM dual",
         "data_strategy": "snapshot",
     }
@@ -304,6 +307,7 @@ async def test_delete_schedule(async_client: object) -> None:
         "name": f"del-sched-ep-{uuid.uuid4().hex[:8]}",
         "path": f"del-sched-path-{uuid.uuid4().hex[:8]}",
         "connection_id": conn_id,
+        "allow_unauthenticated": True,
         "sql_text": "SELECT 1 FROM dual",
         "data_strategy": "snapshot",
     }

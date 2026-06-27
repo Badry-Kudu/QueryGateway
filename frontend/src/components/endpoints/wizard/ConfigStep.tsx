@@ -1,3 +1,4 @@
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -61,7 +62,14 @@ export function ConfigStep({ state, update, authMethods }: ConfigStepProps) {
           <Select
             className="mt-1"
             value={state.auth_method_id}
-            onChange={(e) => update({ auth_method_id: e.target.value })}
+            onChange={(e) =>
+              update({
+                auth_method_id: e.target.value,
+                // Selecting an auth method clears the public opt-in so a
+                // stale "public" flag can't linger on a protected endpoint.
+                allow_unauthenticated: e.target.value ? false : state.allow_unauthenticated,
+              })
+            }
           >
             <option value="">None (public)</option>
             {authMethods.map((a) => (
@@ -83,6 +91,27 @@ export function ConfigStep({ state, update, authMethods }: ConfigStepProps) {
           </Select>
         </div>
       </div>
+
+      {!state.auth_method_id && (
+        <Alert variant="destructive">
+          <AlertTitle>⚠ This endpoint is PUBLIC</AlertTitle>
+          <AlertDescription>
+            <p className="mb-2">
+              With no authentication method attached, anyone who knows the URL can read this
+              endpoint&apos;s data without credentials. Attach an auth method above unless this data
+              is meant to be public.
+            </p>
+            <label className="flex items-center gap-2 font-medium">
+              <input
+                type="checkbox"
+                checked={state.allow_unauthenticated}
+                onChange={(e) => update({ allow_unauthenticated: e.target.checked })}
+              />
+              Yes, serve this endpoint publicly without authentication.
+            </label>
+          </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 }
