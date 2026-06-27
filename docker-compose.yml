@@ -34,8 +34,14 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY?ENCRYPTION_KEY is required}
       ADMIN_USERNAME: ${ADMIN_USERNAME?ADMIN_USERNAME is required}
       ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH?ADMIN_PASSWORD_HASH is required}
-    ports:
-      - "8000:8000"
+    # The backend is intentionally NOT published to the host: it is reached
+    # only through the nginx reverse proxy (`web`) on the internal network.
+    # Keeping it off the host is what makes uvicorn's --forwarded-allow-ips
+    # trust safe — no external client can reach :8000 directly to forge
+    # X-Forwarded-For. Use `http://localhost/api/...` (via `web`) in dev, or
+    # `docker compose exec api ...` for direct debugging.
+    expose:
+      - "8000"
     depends_on:
       db:
         condition: service_healthy
