@@ -1,0 +1,24 @@
+name: Dependency Review
+
+# §4.9 PR gate: block a pull request that introduces a dependency with a known
+# vulnerability (or a disallowed license) before it lands. Complements the
+# scanners that run against the whole tree by reviewing only the *delta* a PR
+# adds. Requires the repository's Dependency Graph to be enabled (see
+# docs/repository_governance.md).
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Review dependency changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Dependency Review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high

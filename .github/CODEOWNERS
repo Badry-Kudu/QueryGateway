@@ -1,0 +1,28 @@
+# Code owners — review required for the supply-chain attack surface (§4.9).
+#
+# These globs cover dependency manifests, their committed lockfiles, the CI
+# workflows, and every enforcement control. The point is that a risky change
+# (a new dependency, a base-image bump) and the control that would catch a bad
+# one (a lockfile hash, a vuln gate, an Action pin) cannot be changed together
+# in a single unreviewed PR.
+#
+# Owner review only has teeth when branch protection requires it — see
+# docs/repository_governance.md.
+
+# ── Python dependencies + hashed lockfile ────────────────────────────────────
+/backend/requirements.txt           @Badry-Kudu
+/backend/requirements.lock          @Badry-Kudu
+/backend/requirements-oracle.txt    @Badry-Kudu
+
+# ── Frontend dependencies + lockfile ─────────────────────────────────────────
+/frontend/package.json              @Badry-Kudu
+/frontend/package-lock.json         @Badry-Kudu
+
+# ── CI/CD workflows and supply-chain enforcement config ──────────────────────
+/.github/workflows/                 @Badry-Kudu
+/.github/dependabot.yml             @Badry-Kudu
+/.github/CODEOWNERS                 @Badry-Kudu
+/scripts/check_action_pins.py       @Badry-Kudu
+
+# ── Container build definitions + digest-pinned base images ──────────────────
+/docker/                            @Badry-Kudu
