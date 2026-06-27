@@ -121,9 +121,12 @@ class DataService:
                 "unauthenticated_endpoint_denied",
                 endpoint_id=str(endpoint.id),
                 endpoint=path,
-                request_id=resolve_request_id(request),
+                user="anonymous",
+                status=status.HTTP_401_UNAUTHORIZED,
                 method=request.method,
                 client_ip=request.client.host if request.client else None,
+                request_id=resolve_request_id(request),
+                duration_ms=round((time.perf_counter() - started_at) * 1000, 2),
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

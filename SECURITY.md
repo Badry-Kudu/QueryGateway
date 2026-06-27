@@ -71,10 +71,15 @@ item-by-item list) plus the standards every change is expected to uphold.
   it. Serving an endpoint **without** an auth method (public/unauthenticated)
   is allowed but must be a **deliberate, explicit choice**: the admin API
   rejects a create or update that would leave an endpoint with no auth method
-  unless `allow_unauthenticated` is set to `true` (`422` otherwise), so an
-  endpoint can never become silently public by omission. Every request to a
-  public endpoint is logged at `WARNING` with `event="public_endpoint_served"`
-  for audit; review those endpoints periodically for unintended exposure.
+  unless `allow_unauthenticated` is set to `true` (`422` otherwise). The data
+  plane enforces the same invariant at request time — an endpoint with no auth
+  method **and** no opt-in (e.g. after its referenced auth method is deleted,
+  which nulls the reference) **default-denies with `401`** instead of serving —
+  so an endpoint can never become silently public by omission or out-of-band.
+  Each request to a genuinely public (opted-in) endpoint is logged at `WARNING`
+  with `event="public_endpoint_served"`; the default-deny path logs
+  `event="unauthenticated_endpoint_denied"`. Review public endpoints
+  periodically for unintended exposure.
 - When an auth method **is** attached but is missing or inactive at request
   time, the endpoint **default-denies** with `401` (it never silently falls
   open). Expired or malformed credentials likewise return `401`, never `500`.

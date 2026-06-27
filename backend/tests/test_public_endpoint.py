@@ -236,5 +236,11 @@ async def test_deleting_auth_method_default_denies_endpoint(
         resp = await unauth_client.get(f"/api/v1/data/{ep_path}")
 
     assert resp.status_code == 401  # default-deny, NOT served publicly
-    assert any(e.get("event") == "unauthenticated_endpoint_denied" for e in logs)
+    denials = [e for e in logs if e.get("event") == "unauthenticated_endpoint_denied"]
+    assert denials, f"expected unauthenticated_endpoint_denied, got {logs}"
+    # The deny event must be self-contained for audit (§3.5).
+    assert denials[0]["endpoint"] == ep_path
+    assert denials[0]["status"] == 401
+    assert denials[0]["user"] == "anonymous"
+    assert "duration_ms" in denials[0]
     assert not any(e.get("event") == "public_endpoint_served" for e in logs)

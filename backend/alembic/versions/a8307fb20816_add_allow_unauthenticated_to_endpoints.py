@@ -2,8 +2,9 @@
 
 Forces public (unauthenticated) data endpoints to be an explicit choice
 (audit finding M1). Existing rows backfill to ``false`` via the server
-default, so they keep being served — the data plane logs a
-``public_endpoint_served`` warning — while any future edit must opt in.
+default; any future edit must then opt in, and the data plane default-denies
+(401) an endpoint left with no auth method and no opt-in rather than serving
+it publicly.
 
 Revision ID: a8307fb20816
 Revises: 0001
