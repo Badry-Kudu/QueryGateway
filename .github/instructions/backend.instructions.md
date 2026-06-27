@@ -1,7 +1,7 @@
 # Backend Instructions (FastAPI)
 
 ## Do
-- Use Python 3.12+ syntax and typing.
+- Use Python 3.14+ syntax and typing.
 - Keep routes versioned under `/api/v1/admin/*` and `/api/v1/data/*`.
 - Use Pydantic v2 models and Pydantic Settings for config.
 - Use SQLAlchemy 2.0 patterns.

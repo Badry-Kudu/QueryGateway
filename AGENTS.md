@@ -2,7 +2,7 @@
 
 ## Mission
 Build and maintain a secure, testable monorepo for dynamic SQL-to-API exposure with:
-- Backend: Python 3.12+, FastAPI, SQLAlchemy 2.0, Alembic, APScheduler 3.x, Pydantic Settings v2, PyJWT, bcrypt, structlog.
+- Backend: Python 3.14+, FastAPI, SQLAlchemy 2.0, Alembic, APScheduler 3.x, Pydantic Settings v2, PyJWT, bcrypt, structlog.
 - Frontend: Vite + React SPA, TypeScript, shadcn/ui, Tailwind.
 - Infra: Docker + docker-compose, GitHub Actions CI.
 

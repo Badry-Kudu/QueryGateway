@@ -214,7 +214,7 @@ New optional dependencies (added to `requirements-extra.txt` or separate files):
 
 ```
 # PostgreSQL (already in requirements.txt as app DB)
-asyncpg>=0.30.0
+asyncpg>=0.31.0
 
 # MySQL
 aiomysql>=0.2.0

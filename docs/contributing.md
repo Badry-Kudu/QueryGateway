@@ -4,7 +4,7 @@
 
 | Tool | Minimum version |
 |------|----------------|
-| Python | 3.12 |
+| Python | 3.14 |
 | Node.js | 20 LTS |
 | Docker | 24 |
 | Docker Compose | v2 (bundled with Docker Desktop) |

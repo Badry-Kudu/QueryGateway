@@ -4,7 +4,7 @@
 QueryGateway is a monorepo for creating secure, dynamic REST endpoints from Oracle SQL queries with optional scheduled snapshot caching.
 
 ## Stack Snapshot
-- Python 3.12+, FastAPI, Pydantic Settings v2.
+- Python 3.14+, FastAPI, Pydantic Settings v2.
 - PostgreSQL app DB, SQLAlchemy 2.0, Alembic.
 - Oracle connectivity via `python-oracledb`.
 - APScheduler 3.x with persistent PostgreSQL job store.

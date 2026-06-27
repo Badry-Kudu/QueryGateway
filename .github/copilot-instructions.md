@@ -10,7 +10,7 @@ These instructions apply repository-wide. Prefer local instructions under `.gith
 - Update docs in `docs/` when behavior changes.
 
 ## Required Architecture Rules
-- Use Python 3.12+ for backend code.
+- Use Python 3.14+ for backend code.
 - Use FastAPI with versioned routes.
 - Admin routes: `/api/v1/admin/*`.
 - Data routes: `/api/v1/data/*`.

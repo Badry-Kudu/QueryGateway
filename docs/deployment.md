@@ -4,7 +4,7 @@ This document provides step-by-step deployment instructions for QueryGateway in 
 
 ## Prerequisites
 
-- **Python 3.12 or 3.13** (backend runtime — Python 3.14 is not yet supported; `asyncpg` wheels are unavailable for CPython 3.14)
+- **Python 3.14+** (backend runtime — `asyncpg` 0.31.0+ provides CPython 3.14 wheels)
 - **Node.js 20 LTS** (frontend build)
 - **PostgreSQL 16+** (application database)
 - **Docker & Docker Compose** (recommended for production)
