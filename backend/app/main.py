@@ -74,6 +74,23 @@ def _init_oracle_client() -> None:
         )
 
 
+def _docs_urls() -> dict[str, str | None]:
+    """Resolve interactive-docs URLs, disabling them in production (L3).
+
+    Exposing the full admin API schema (``/api/docs``, ``/api/redoc``,
+    ``/api/openapi.json``) in production hands an attacker a map of every
+    route and payload shape. Return ``None`` for all three when
+    ``APP_ENV=production`` so FastAPI does not mount them.
+    """
+    if settings.app_env == "production":
+        return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    return {
+        "docs_url": "/api/docs",
+        "redoc_url": "/api/redoc",
+        "openapi_url": "/api/openapi.json",
+    }
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """Application startup / shutdown lifecycle."""
@@ -90,14 +107,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     log.info("application_shutdown")
 
 
+_docs = _docs_urls()
 app = FastAPI(
     title="QueryGateway",
     description="Secure, dynamic REST endpoints from Oracle SQL queries.",
     version="0.1.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
     lifespan=lifespan,
+    docs_url=_docs["docs_url"],
+    redoc_url=_docs["redoc_url"],
+    openapi_url=_docs["openapi_url"],
 )
 
 # ── Middleware (registered outermost-first; executes in reverse order) ────────

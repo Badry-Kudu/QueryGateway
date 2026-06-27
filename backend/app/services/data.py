@@ -205,15 +205,14 @@ class DataService:
             return username
 
         if method_type == "api_key":
-            api_key = (
-                request.headers.get("X-Api-Key")
-                or request.query_params.get("api_key")
-                or ""
-            )
+            # Header only: a key in the query string leaks via proxy/access
+            # logs, browser history, and the Referer header (L1). The
+            # query-param fallback was removed deliberately.
+            api_key = request.headers.get("X-Api-Key", "")
             if not api_key:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="API key required (X-Api-Key header or ?api_key= query param).",
+                    detail="API key required (X-Api-Key header).",
                 )
             ok = await svc.verify_api_key(auth_method_id, api_key)
             if not ok:

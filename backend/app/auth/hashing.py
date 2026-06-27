@@ -8,6 +8,27 @@ import secrets
 
 import bcrypt
 
+# bcrypt only consumes the first 72 bytes of its input and silently ignores
+# the rest. Accepting a longer password would mean the ignored tail
+# contributes nothing to the hash — a silent weakening — so passwords are
+# bounded at this limit at the schema boundary (L4).
+BCRYPT_MAX_PASSWORD_BYTES = 72
+
+
+def validate_password_length(plaintext: str) -> str:
+    """Reject passwords longer than bcrypt's 72-byte input limit.
+
+    Raises ``ValueError`` (surfaced as a 422 at the schema boundary). The
+    limit is measured in UTF-8 *bytes*, not characters, because that is what
+    bcrypt truncates on.
+    """
+    if len(plaintext.encode("utf-8")) > BCRYPT_MAX_PASSWORD_BYTES:
+        raise ValueError(
+            f"Password must be at most {BCRYPT_MAX_PASSWORD_BYTES} bytes long "
+            "(bcrypt ignores any input beyond 72 bytes)."
+        )
+    return plaintext
+
 
 def hash_password(plaintext: str) -> str:
     """Hash a plaintext password with bcrypt. Returns the hash string."""

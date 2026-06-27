@@ -11,8 +11,41 @@ middleware (request_id, endpoint, method, user).
 """
 
 import logging
+from collections.abc import MutableMapping
+from typing import Any
 
 import structlog
+
+# Keys whose values must never reach the log sink, even if a caller binds one
+# by mistake (L2 — defence in depth, §3.5). Matched case-insensitively against
+# the exact key name. The mandatory field set (request_id, user, endpoint,
+# status, duration_ms, event) and scheduler fields are deliberately excluded.
+_SENSITIVE_KEYS = frozenset(
+    {
+        "password",
+        "secret",
+        "token",
+        "api_key",
+        "key",
+        "authorization",
+        "signing_secret",
+    }
+)
+_REDACTED = "***REDACTED***"
+
+
+def redact_sensitive(
+    _logger: Any, _method_name: str, event_dict: MutableMapping[str, Any]
+) -> MutableMapping[str, Any]:
+    """structlog processor that masks values for known-sensitive keys.
+
+    Runs immediately before the renderer so it covers every event regardless
+    of where it was bound (contextvars, call-site kwargs, etc.).
+    """
+    for k in event_dict:
+        if k.lower() in _SENSITIVE_KEYS:
+            event_dict[k] = _REDACTED
+    return event_dict
 
 
 def configure_logging(log_level: str = "INFO") -> None:
@@ -23,7 +56,8 @@ def configure_logging(log_level: str = "INFO") -> None:
     2. Add stdlib log level name.
     3. Add ISO-8601 timestamp.
     4. Render exception info (if any).
-    5. Render to JSON.
+    5. Redact known-sensitive keys (defence in depth).
+    6. Render to JSON.
     """
     level = getattr(logging, log_level.upper(), logging.INFO)
 
@@ -39,6 +73,7 @@ def configure_logging(log_level: str = "INFO") -> None:
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.ExceptionRenderer(),
+            redact_sensitive,
             structlog.processors.JSONRenderer(),
         ],
         wrapper_class=structlog.make_filtering_bound_logger(level),

@@ -27,6 +27,26 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
+    @field_validator("cors_origins")
+    @classmethod
+    def _reject_wildcard_origin(cls, value: str) -> str:
+        """Refuse to boot with a wildcard CORS origin (M3).
+
+        The app sends ``allow_credentials=True``; under credentials a
+        wildcard origin makes CORSMiddleware reflect *any* Origin, which is
+        a cross-origin data-theft vector (§3.7). Fail fast at startup rather
+        than silently shipping an unsafe policy. List explicit origins.
+        """
+        origins = [o.strip() for o in value.split(",") if o.strip()]
+        if any(o == "*" for o in origins):
+            raise ValueError(
+                "CORS_ORIGINS must not be or contain '*': the app sends "
+                "allow_credentials=True, so a wildcard origin would reflect any "
+                "Origin and leak credentialed responses cross-site. List "
+                "explicit origins instead."
+            )
+        return value
+
     # JWT — signing key MUST be provided via environment.
     # No default is set to avoid shipping a known signing key.
     # min_length=32 rejects empty / dangerously short values at startup so

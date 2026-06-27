@@ -140,3 +140,44 @@ def test_settings_build_when_required_envs_present(
 
     s = Settings(_env_file=None)
     assert s.jwt_secret_key == _VALID_JWT_KEY
+
+
+def test_cors_wildcard_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A wildcard CORS origin must fail at startup (M3) — allow_credentials=True."""
+    monkeypatch.setenv("JWT_SECRET_KEY", _VALID_JWT_KEY)
+    monkeypatch.setenv("ENCRYPTION_KEY", _VALID_FERNET_KEY)
+    monkeypatch.setenv("CORS_ORIGINS", "*")
+
+    from app.config import Settings
+
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(_env_file=None)
+
+    assert any(err["loc"] == ("cors_origins",) for err in exc_info.value.errors())
+
+
+def test_cors_wildcard_rejected_when_mixed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A wildcard mixed with explicit origins is still rejected."""
+    monkeypatch.setenv("JWT_SECRET_KEY", _VALID_JWT_KEY)
+    monkeypatch.setenv("ENCRYPTION_KEY", _VALID_FERNET_KEY)
+    monkeypatch.setenv("CORS_ORIGINS", "https://app.example.com,*")
+
+    from app.config import Settings
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_cors_explicit_origins_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Explicit origins build cleanly and parse into the list."""
+    monkeypatch.setenv("JWT_SECRET_KEY", _VALID_JWT_KEY)
+    monkeypatch.setenv("ENCRYPTION_KEY", _VALID_FERNET_KEY)
+    monkeypatch.setenv("CORS_ORIGINS", "https://app.example.com,https://admin.example.com")
+
+    from app.config import Settings
+
+    s = Settings(_env_file=None)
+    assert s.cors_origins_list == [
+        "https://app.example.com",
+        "https://admin.example.com",
+    ]
