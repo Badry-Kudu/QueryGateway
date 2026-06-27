@@ -31,7 +31,13 @@ def validate_password_length(plaintext: str) -> str:
 
 
 def hash_password(plaintext: str) -> str:
-    """Hash a plaintext password with bcrypt. Returns the hash string."""
+    """Hash a plaintext password with bcrypt. Returns the hash string.
+
+    The 72-byte bound is enforced here too (not only at the schema boundary)
+    so direct callers — offline admin-hash generation, scripts, future code
+    paths — can't silently truncate past bcrypt's limit (L4, defence in depth).
+    """
+    validate_password_length(plaintext)
     return bcrypt.hashpw(plaintext.encode(), bcrypt.gensalt()).decode()
 
 

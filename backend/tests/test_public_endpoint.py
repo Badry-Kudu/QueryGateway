@@ -12,6 +12,7 @@ import uuid
 import pytest
 from app.schemas.endpoint import EndpointCreate
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 from structlog.testing import capture_logs
 
 
@@ -158,13 +159,16 @@ async def test_update_detaching_auth_without_optin_returns_422(
 
 
 @pytest.mark.integration
-async def test_public_endpoint_serves_and_logs_warning(async_client: object) -> None:
-    """A public (no-auth) endpoint is served and emits public_endpoint_served."""
-    client: AsyncClient = async_client  # type: ignore[assignment]
-    conn_id = await _make_connection(client)
+async def test_public_endpoint_serves_and_logs_warning(
+    async_client: object, unauth_client: AsyncClient
+) -> None:
+    """An explicitly public endpoint is served with NO credentials and emits a
+    fully-populated public_endpoint_served audit event."""
+    admin: AsyncClient = async_client  # type: ignore[assignment]
+    conn_id = await _make_connection(admin)
 
     ep_path = _unique("pub-data")
-    r = await client.post(
+    r = await admin.post(
         "/api/v1/admin/endpoints/",
         json={
             "name": _unique("pub-ep"),
@@ -178,12 +182,59 @@ async def test_public_endpoint_serves_and_logs_warning(async_client: object) -> 
     assert r.status_code == 201
 
     with capture_logs() as logs:
-        # No Authorization header at all — a protected endpoint would 401 here.
-        resp = await client.get(f"/api/v1/data/{ep_path}")
+        # unauth_client carries no Authorization header — proves true public access.
+        resp = await unauth_client.get(f"/api/v1/data/{ep_path}")
 
     # Served (reached the snapshot path → 503 "no snapshot yet"), not auth-blocked.
     assert resp.status_code == 503
     warnings = [e for e in logs if e.get("event") == "public_endpoint_served"]
     assert warnings, f"expected a public_endpoint_served warning, got {logs}"
-    assert warnings[0]["path"] == ep_path
+    assert warnings[0]["endpoint"] == ep_path
+    assert warnings[0]["status"] == 503
+    assert warnings[0]["user"] == "anonymous"
     assert warnings[0]["log_level"] == "warning"
+
+
+@pytest.mark.integration
+async def test_deleting_auth_method_default_denies_endpoint(
+    async_client: object, unauth_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Deleting an auth method that an endpoint references (FK ondelete=SET NULL)
+    must NOT make the endpoint public — it default-denies with 401. Closes the
+    M1 side-channel where a protected endpoint could silently become public."""
+    admin: AsyncClient = async_client  # type: ignore[assignment]
+    conn_id = await _make_connection(admin)
+
+    r = await admin.post(
+        "/api/v1/admin/auth/",
+        json={"name": _unique("orphan-auth"), "method_type": "bearer"},
+    )
+    auth_id = r.json()["id"]
+    ep_path = _unique("orphan-data")
+    r = await admin.post(
+        "/api/v1/admin/endpoints/",
+        json={
+            "name": _unique("orphan-ep"),
+            "path": ep_path,
+            "connection_id": conn_id,
+            "sql_text": "SELECT 1 FROM dual",
+            "data_strategy": "snapshot",
+            "auth_method_id": auth_id,
+        },
+    )
+    assert r.status_code == 201
+
+    # Delete the auth method → the FK ondelete=SET NULL orphans the endpoint.
+    r = await admin.delete(f"/api/v1/admin/auth/{auth_id}")
+    assert r.status_code == 204
+    # The shared test session caches the endpoint with its old auth_method_id;
+    # drop the cache so the next read reflects the DB-side SET NULL (production
+    # opens a fresh session per request).
+    db_session.expire_all()
+
+    with capture_logs() as logs:
+        resp = await unauth_client.get(f"/api/v1/data/{ep_path}")
+
+    assert resp.status_code == 401  # default-deny, NOT served publicly
+    assert any(e.get("event") == "unauthenticated_endpoint_denied" for e in logs)
+    assert not any(e.get("event") == "public_endpoint_served" for e in logs)

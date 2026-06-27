@@ -6,8 +6,8 @@ mutable tags (``@v4``, ``@main``) have been weaponised via tag re-pointing.
 This is a self-contained lint (no third-party action / tool to vet or pin in
 turn), run on every PR that touches a workflow and on the weekly scan.
 
-Exemptions: local actions (``./`` or ``../``) and ``docker://`` image refs,
-which are not tag-mutable in the same way.
+Exemption: only local actions (``./`` or ``../``). ``docker://`` image refs use
+mutable tags and must be pinned (by digest) too, so they are NOT exempt.
 """
 
 from __future__ import annotations
@@ -29,7 +29,9 @@ def main() -> int:
             if not m:
                 continue
             ref = m.group(1)
-            if ref.startswith(("./", "../", "docker://")):
+            # Only local composite actions are exempt; docker:// refs are
+            # tag-mutable and must be pinned, so they fall through to the check.
+            if ref.startswith(("./", "../")):
                 continue
             if "@" not in ref:
                 problems.append((wf, lineno, ref, "missing @<sha>"))

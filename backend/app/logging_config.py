@@ -11,7 +11,7 @@ middleware (request_id, endpoint, method, user).
 """
 
 import logging
-from collections.abc import MutableMapping
+from collections.abc import Mapping, MutableMapping
 from typing import Any
 
 import structlog
@@ -34,17 +34,39 @@ _SENSITIVE_KEYS = frozenset(
 _REDACTED = "***REDACTED***"
 
 
+def _redact_value(value: Any) -> Any:
+    """Recursively redact sensitive keys inside nested mappings/sequences."""
+    if isinstance(value, Mapping):
+        return {
+            k: (
+                _REDACTED
+                if isinstance(k, str) and k.lower() in _SENSITIVE_KEYS
+                else _redact_value(v)
+            )
+            for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_value(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_value(v) for v in value)
+    return value
+
+
 def redact_sensitive(
     _logger: Any, _method_name: str, event_dict: MutableMapping[str, Any]
 ) -> MutableMapping[str, Any]:
     """structlog processor that masks values for known-sensitive keys.
 
     Runs immediately before the renderer so it covers every event regardless
-    of where it was bound (contextvars, call-site kwargs, etc.).
+    of where it was bound (contextvars, call-site kwargs, etc.). Recurses into
+    nested mappings/lists/tuples so secrets buried inside structured values
+    (e.g. ``headers.authorization``, ``payload.api_key``) are masked too.
     """
-    for k in event_dict:
-        if k.lower() in _SENSITIVE_KEYS:
+    for k, v in list(event_dict.items()):
+        if isinstance(k, str) and k.lower() in _SENSITIVE_KEYS:
             event_dict[k] = _REDACTED
+        else:
+            event_dict[k] = _redact_value(v)
     return event_dict
 
 

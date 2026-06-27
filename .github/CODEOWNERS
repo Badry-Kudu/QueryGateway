@@ -8,6 +8,12 @@
 #
 # Owner review only has teeth when branch protection requires it — see
 # docs/repository_governance.md.
+#
+# NOTE: @Badry-Kudu is currently the repository's only collaborator, so it is
+# the sole owner below. A lone owner is a review bottleneck (they cannot review
+# their own PRs, which pressures admins to bypass the gate). As soon as a second
+# maintainer or a GitHub team exists, add it alongside @Badry-Kudu on every
+# entry — prefer a team handle (e.g. @org/security) over individuals.
 
 # ── Python dependencies + hashed lockfile ────────────────────────────────────
 /backend/requirements.txt           @Badry-Kudu

@@ -118,16 +118,23 @@ class TestMigrationFileStructure:
         assert len(revisions) == len(set(revisions)), "Duplicate migration revision IDs"
 
     def test_allow_unauthenticated_migration(self) -> None:
-        """M1: a migration adds and (reversibly) drops endpoints.allow_unauthenticated."""
-        sources = "\n".join(f.read_text() for f in MIGRATION_DIR.glob("*.py"))
-        assert "allow_unauthenticated" in sources, (
-            "No migration references allow_unauthenticated"
-        )
-        assert "add_column" in sources, "Migration must add the column (upgrade)"
-        assert "drop_column" in sources, "Migration must drop the column (downgrade)"
+        """M1: the SAME revision that references allow_unauthenticated must add
+        the endpoints column (upgrade) and drop it (downgrade) — i.e. it is
+        reversible in place, not just that some migration adds and another drops
+        a column."""
+        matches = [
+            f for f in MIGRATION_DIR.glob("*.py") if "allow_unauthenticated" in f.read_text()
+        ]
+        assert matches, "No migration references allow_unauthenticated"
+        for f in matches:
+            src = f.read_text()
+            assert "add_column" in src, f"{f.name} must add the column (upgrade)"
+            assert "drop_column" in src, f"{f.name} must drop the column (downgrade)"
+            assert "endpoints" in src, f"{f.name} must target the endpoints table"
 
     def test_migration_chain_is_linear(self) -> None:
-        """Each non-base migration must point at an existing revision."""
+        """The revision graph must be a single linear chain: exactly one base
+        (down_revision=None), exactly one head, and every down_revision known."""
         revisions: dict[str, str | None] = {}
         for f in MIGRATION_DIR.glob("*.py"):
             src = f.read_text()
@@ -135,12 +142,19 @@ class TestMigrationFileStructure:
             down = _extract(src, "down_revision")
             assert rev is not None, f"{f.name} has no revision id"
             revisions[rev] = down
-        # Exactly one base (down_revision = None) and every other down points to a known rev.
+
         bases = [r for r, d in revisions.items() if d is None]
         assert len(bases) == 1, f"Expected exactly one base migration, found {bases}"
         for rev, down in revisions.items():
             if down is not None:
                 assert down in revisions, f"{rev} points at unknown down_revision {down}"
+
+        # A linear chain has exactly one head — a revision that no other
+        # revision lists as its down_revision. Two heads ⇒ a fork (branched
+        # history), which Alembic can't `upgrade head` unambiguously.
+        down_targets = {d for d in revisions.values() if d is not None}
+        heads = [r for r in revisions if r not in down_targets]
+        assert len(heads) == 1, f"Expected exactly one head (linear history), found {heads}"
 
 
 # ── Model–migration alignment tests ─────────────────────────────────────────

@@ -118,12 +118,12 @@ Comprehensive security validation for QueryGateway production deployments. All i
 
 ## Summary
 
-- **Verified items**: 57/64
-- **Action required**: 7/64
+- **Verified items**: 58/64
+- **Action required**: 6/64
 - **High-severity unresolved findings**: 0
 - **All code-level security controls validated through automated tests**
 
-The 7 "Action Required" items are environment/repo-admin configurations that
+The 6 "Action Required" items are environment/repo-admin configurations that
 must be applied per installation: the original deployment-config items
 (`DEBUG=false`, `ENCRYPTION_KEY` in a secrets manager, HTTPS termination,
 PostgreSQL network isolation — see the [Deployment Runbook](deployment.md))

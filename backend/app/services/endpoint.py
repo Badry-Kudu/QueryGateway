@@ -163,24 +163,23 @@ class EndpointService:
             for field in payload.model_fields_set & _updatable
         }
 
-        # M1: an update that touches the auth posture must not leave the
-        # endpoint unauthenticated without an explicit opt-in. Evaluate the
-        # MERGED state (payload over stored row) so detaching the auth method
-        # without setting allow_unauthenticated=true is rejected (422), while
-        # unrelated edits to an already-public endpoint are left untouched.
-        if payload.model_fields_set & {"auth_method_id", "allow_unauthenticated"}:
-            effective_auth = (
-                payload.auth_method_id
-                if "auth_method_id" in payload.model_fields_set
-                else obj.auth_method_id
-            )
-            effective_public = (
-                payload.allow_unauthenticated
-                if "allow_unauthenticated" in payload.model_fields_set
-                else obj.allow_unauthenticated
-            )
-            if effective_auth is None and not effective_public:
-                raise PublicEndpointError(PUBLIC_OPT_IN_MESSAGE)
+        # M1: never persist an endpoint that ends up unauthenticated without an
+        # explicit opt-in. Evaluate the MERGED state (payload over the stored
+        # row) on EVERY update — not just when an auth field is in the payload —
+        # so a legacy/orphaned (auth_method_id=None, allow_unauthenticated=False)
+        # row can't stay silently public via an unrelated edit (rename, SQL, …).
+        effective_auth = (
+            payload.auth_method_id
+            if "auth_method_id" in payload.model_fields_set
+            else obj.auth_method_id
+        )
+        effective_public = (
+            payload.allow_unauthenticated
+            if "allow_unauthenticated" in payload.model_fields_set
+            else obj.allow_unauthenticated
+        )
+        if effective_auth is None and not effective_public:
+            raise PublicEndpointError(PUBLIC_OPT_IN_MESSAGE)
 
         # Uniqueness check on name change
         if payload.name is not None and payload.name != obj.name:

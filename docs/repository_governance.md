@@ -17,22 +17,30 @@ Settings → Branches → Branch protection rule for `main`:
   change to a dependency manifest, lockfile, workflow, or enforcement script
   needs the owner's review.
 - **Require status checks to pass before merging**, and **Require branches to
-  be up to date**. Mark these checks required (exact check names):
-  - `Lint, Type-check & Test` — backend ruff + mypy + pytest
-  - `Lint, Format-check & Test` — frontend eslint + prettier + vitest + build
-  - `Build, Scan & SBOM` — Docker build + Trivy (fail on CRITICAL) + SBOM
-  - `Verify Actions are SHA-pinned` — Action pin lint
-  - `Review dependency changes` — dependency-review (fail on high+)
+  be up to date**.
 - **Do not allow bypassing the above settings** — the checks must be
   **non-bypassable**, including for admins (§4.9). Without this, the gates are
   advisory.
 - **Require signed commits** — preferred (§4.9 verified/signed commits).
 - **Require linear history** — optional, recommended.
 
-> Note: the data-plane CI jobs are path-filtered, so a PR that touches only
-> `frontend/**` will not run the backend job. GitHub treats a required check
-> that did not run as pending. Keep this in mind when configuring required
-> checks, or scope required checks to a job that always runs.
+> ⚠️ **Which checks to mark required — read this first.** The backend, frontend,
+> docker, and actions-lint workflows are **path-filtered**: a PR that touches
+> only `frontend/**` never starts the backend job, and GitHub leaves a required
+> check that *did not run* in the **pending** state forever — which **blocks the
+> merge**. Do **not** naively mark all five job names required, or unrelated PRs
+> will deadlock. Pick one of:
+>
+> - **`Review dependency changes`** is the only workflow with no `paths:`
+>   filter, so it runs on every PR and is always safe to require as-is.
+> - To require the per-area gates too, first make their workflows run on every
+>   PR by **removing the `paths:` filters** from `backend.yml`, `frontend.yml`,
+>   `docker.yml`, and `actions-lint.yml` (acceptable for this security-critical
+>   repo — every gate then runs on every PR). Only then mark these required:
+>   `Lint, Type-check & Test`, `Lint, Format-check & Test`, `Build, Scan & SBOM`,
+>   `Verify Actions are SHA-pinned`.
+> - Or add a single aggregator job (`needs:` all gates, `if: always()`) in one
+>   always-triggered workflow and require only that aggregated check.
 
 ## 2. Repository prerequisites
 
@@ -75,7 +83,10 @@ Vulnerability currency is enforced both at PR time and on a schedule:
 ## 4. Applying via API (optional)
 
 If applying with the REST API instead of the UI, the branch-protection call is
-roughly:
+roughly the following. The `checks` list below only includes the
+always-running `Review dependency changes`; add the path-filtered job contexts
+**only after** removing their `paths:` filters (see the §1 warning), otherwise
+they will keep PRs pending.
 
 ```
 PUT /repos/{owner}/{repo}/branches/main/protection
@@ -83,11 +94,12 @@ PUT /repos/{owner}/{repo}/branches/main/protection
   "required_status_checks": {
     "strict": true,
     "checks": [
-      {"context": "Lint, Type-check & Test"},
-      {"context": "Lint, Format-check & Test"},
-      {"context": "Build, Scan & SBOM"},
-      {"context": "Verify Actions are SHA-pinned"},
       {"context": "Review dependency changes"}
+      // After de-path-filtering the workflows, also add:
+      // {"context": "Lint, Type-check & Test"},
+      // {"context": "Lint, Format-check & Test"},
+      // {"context": "Build, Scan & SBOM"},
+      // {"context": "Verify Actions are SHA-pinned"}
     ]
   },
   "required_pull_request_reviews": {"require_code_owner_reviews": true, "required_approving_review_count": 1},

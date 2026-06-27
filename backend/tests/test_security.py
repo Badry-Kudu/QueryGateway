@@ -392,12 +392,16 @@ class TestPathValidation:
         ],
     )
     def test_invalid_paths_rejected(self, path: str) -> None:
-        with pytest.raises(ValueError):
+        # allow_unauthenticated=True so the only thing that can fail is the
+        # path validator — not the public/auth invariant (keeps this test
+        # specifically about path rejection).
+        with pytest.raises(ValueError, match="lowercase alphanumeric"):
             EndpointCreate(
                 name="test",
                 path=path,
                 connection_id=uuid.uuid4(),
                 sql_text="SELECT 1 FROM dual",
+                allow_unauthenticated=True,
             )
 
     @pytest.mark.parametrize(
