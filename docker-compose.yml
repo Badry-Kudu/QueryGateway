@@ -7,7 +7,12 @@ services:
       POSTGRES_USER: db2api
       POSTGRES_PASSWORD: db2api
     ports:
-      - "5432:5432"
+      # Loopback only: the API reaches Postgres over the internal `backend`
+      # network. This host mapping exists solely for local dev tools
+      # (psql/GUI clients) and must never be published on external
+      # interfaces — the data tier holds encrypted credentials, signing
+      # secrets, and access logs.
+      - "127.0.0.1:5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     # Data tier only — the API reaches Postgres here; nginx never does.
@@ -87,7 +92,9 @@ services:
     environment:
       ORACLE_PASSWORD: ${ORACLE_PASSWORD:-oracle}
     ports:
-      - "1521:1521"
+      # Loopback only — see the db service rationale. The API connects over
+      # the internal `backend` network; this is for local dev access only.
+      - "127.0.0.1:1521:1521"
     volumes:
       - oracle_data:/opt/oracle/oradata
     # Data tier only — reachable by the API, never by nginx.
