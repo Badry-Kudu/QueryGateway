@@ -16,7 +16,11 @@ import pathlib
 import re
 import sys
 
+# A pinned ref is either a full 40-char git commit SHA (GitHub Actions) or a
+# sha256 OCI image digest (``docker://image@sha256:<64 hex>``). Both are
+# immutable; mutable tags (``@v4``, ``@latest``, no ``@``) are not.
 SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
+DIGEST_RE = re.compile(r"^sha256:[0-9a-fA-F]{64}$")
 USES_RE = re.compile(r"""^\s*-?\s*uses:\s*["']?([^"'\s#]+)["']?""")
 WORKFLOW_DIR = pathlib.Path(".github/workflows")
 
@@ -34,11 +38,13 @@ def main() -> int:
             if ref.startswith(("./", "../")):
                 continue
             if "@" not in ref:
-                problems.append((wf, lineno, ref, "missing @<sha>"))
+                problems.append((wf, lineno, ref, "missing @<commit-sha|sha256-digest>"))
                 continue
-            sha = ref.rsplit("@", 1)[1]
-            if not SHA_RE.match(sha):
-                problems.append((wf, lineno, ref, "ref is not a 40-char commit SHA"))
+            pin = ref.rsplit("@", 1)[1]
+            if not (SHA_RE.match(pin) or DIGEST_RE.match(pin)):
+                problems.append(
+                    (wf, lineno, ref, "ref is not a full commit SHA or sha256 digest")
+                )
 
     for wf, lineno, ref, why in problems:
         print(f"::error file={wf},line={lineno}::Action not SHA-pinned ({why}): {ref}")

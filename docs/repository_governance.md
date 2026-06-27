@@ -16,6 +16,14 @@ Settings → Branches → Branch protection rule for `main`:
 - **Require review from Code Owners** — pairs with `.github/CODEOWNERS` so a
   change to a dependency manifest, lockfile, workflow, or enforcement script
   needs the owner's review.
+
+> ⚠️ **Required reviews need ≥ 2 collaborators.** GitHub does not let an author
+> approve their own PR, so with a **single** maintainer (the current state —
+> `CODEOWNERS` lists only `@Badry-Kudu`) "Require approvals" and "Require review
+> from Code Owners" will **deadlock** every PR. Until a second maintainer or a
+> team exists, enforce via **required status checks + no direct pushes** (below)
+> and turn the review requirements on once you add a second owner to
+> `CODEOWNERS`.
 - **Require status checks to pass before merging**, and **Require branches to
   be up to date**.
 - **Do not allow bypassing the above settings** — the checks must be
@@ -82,30 +90,27 @@ Vulnerability currency is enforced both at PR time and on a schedule:
 
 ## 4. Applying via API (optional)
 
-If applying with the REST API instead of the UI, the branch-protection call is
-roughly the following. The `checks` list below only includes the
-always-running `Review dependency changes`; add the path-filtered job contexts
-**only after** removing their `paths:` filters (see the §1 warning), otherwise
-they will keep PRs pending.
+If applying with the REST API instead of the UI, the call below is the
+**solo-safe baseline**: no direct pushes (`enforce_admins`), and the only
+always-running check (`Review dependency changes`) required. It deliberately
+sets `required_pull_request_reviews` to `null` to avoid the single-owner
+deadlock (§1). Once you (a) add a second code owner and (b) drop the `paths:`
+filters from the per-area workflows, extend `checks` with
+`Lint, Type-check & Test`, `Lint, Format-check & Test`, `Build, Scan & SBOM`,
+and `Verify Actions are SHA-pinned`, and set `required_pull_request_reviews` to
+`{"require_code_owner_reviews": true, "required_approving_review_count": 1}`.
 
-```
-PUT /repos/{owner}/{repo}/branches/main/protection
-{
-  "required_status_checks": {
-    "strict": true,
-    "checks": [
-      {"context": "Review dependency changes"}
-      // After de-path-filtering the workflows, also add:
-      // {"context": "Lint, Type-check & Test"},
-      // {"context": "Lint, Format-check & Test"},
-      // {"context": "Build, Scan & SBOM"},
-      // {"context": "Verify Actions are SHA-pinned"}
-    ]
-  },
-  "required_pull_request_reviews": {"require_code_owner_reviews": true, "required_approving_review_count": 1},
-  "enforce_admins": true,
-  "restrictions": null
-}
+```bash
+curl -X PUT \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/OWNER/REPO/branches/main/protection \
+  -d '{
+    "required_status_checks": {"strict": true, "checks": [{"context": "Review dependency changes"}]},
+    "required_pull_request_reviews": null,
+    "enforce_admins": true,
+    "restrictions": null
+  }'
 ```
 
 Confirm afterwards that direct pushes are rejected and that a PR cannot merge

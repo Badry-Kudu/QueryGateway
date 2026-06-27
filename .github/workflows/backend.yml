@@ -60,10 +60,11 @@ jobs:
       - name: Audit dependencies (pip-audit)
         working-directory: backend
         run: |
-          # Build-failing vulnerability gate. pip-audit exits non-zero if any
-          # pinned dependency has a known advisory (§4.9). Pinned by version so
-          # the gate itself is reproducible.
-          pip install pip-audit==2.9.0
+          # Build-failing vulnerability gate (§4.9). The auditor itself is
+          # installed from a hash-pinned lockfile so the scanner job does not
+          # bypass the supply-chain guardrail. pip-audit exits non-zero on any
+          # known advisory in the audited lockfile.
+          pip install --require-hashes -r requirements-audit.lock
           pip-audit --require-hashes -r requirements.lock
 
       - name: Lint (ruff)

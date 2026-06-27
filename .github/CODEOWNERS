@@ -15,10 +15,12 @@
 # maintainer or a GitHub team exists, add it alongside @Badry-Kudu on every
 # entry — prefer a team handle (e.g. @org/security) over individuals.
 
-# ── Python dependencies + hashed lockfile ────────────────────────────────────
+# ── Python dependencies + hashed lockfiles ───────────────────────────────────
 /backend/requirements.txt           @Badry-Kudu
 /backend/requirements.lock          @Badry-Kudu
 /backend/requirements-oracle.txt    @Badry-Kudu
+/backend/requirements-audit.txt     @Badry-Kudu
+/backend/requirements-audit.lock    @Badry-Kudu
 
 # ── Frontend dependencies + lockfile ─────────────────────────────────────────
 /frontend/package.json              @Badry-Kudu

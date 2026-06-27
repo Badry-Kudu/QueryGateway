@@ -27,7 +27,8 @@ jobs:
       - name: Audit pinned dependencies
         working-directory: backend
         run: |
-          pip install pip-audit==2.9.0
+          # Auditor installed hash-pinned so the scan job itself is locked (§4.9).
+          pip install --require-hashes -r requirements-audit.lock
           pip-audit --require-hashes -r requirements.lock
 
   npm-audit:
