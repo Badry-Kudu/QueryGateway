@@ -1,5 +1,7 @@
 # Web framework
-fastapi==0.118.3
+# fastapi 0.138.x drops Starlette's upper bound, letting us pull a Starlette
+# release with no open advisories (CVE remediation — see requirements.lock).
+fastapi==0.138.1
 uvicorn[standard]==0.32.1
 
 # Configuration
@@ -19,11 +21,11 @@ psycopg2-binary>=2.9.9
 apscheduler==3.10.4
 
 # Auth
-PyJWT==2.10.1
+PyJWT==2.13.0
 bcrypt==4.2.1
 
 # Encryption (credential storage at rest)
-cryptography==44.0.0
+cryptography==49.0.0
 
 # Logging
 structlog==24.4.0
@@ -32,9 +34,9 @@ structlog==24.4.0
 httpx==0.28.1
 
 # Development / testing
-pytest==8.3.4
-pytest-asyncio==0.25.0
-pytest-cov==6.0.0
+pytest==9.1.1
+pytest-asyncio==1.4.0
+pytest-cov==7.1.0
 
 # Linting and type checking
 ruff==0.14.0

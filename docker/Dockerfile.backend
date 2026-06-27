@@ -14,9 +14,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install core Python dependencies
-COPY backend/requirements.txt backend/requirements-oracle.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Install core Python dependencies from the hash-pinned lockfile.
+# --require-hashes aborts the build if any downloaded artifact's hash does not
+# match the committed lockfile, blocking tampered/substituted packages (§4.9).
+# requirements.lock is generated from requirements.txt via
+# `uv pip compile --generate-hashes` and committed alongside it.
+COPY backend/requirements.txt backend/requirements.lock backend/requirements-oracle.txt ./
+RUN pip install --no-cache-dir --require-hashes -r requirements.lock
 # Oracle driver is optional — best-effort; app still starts without it.
 RUN pip install --no-cache-dir -r requirements-oracle.txt || \
     echo "WARNING: python-oracledb not available; Oracle connectivity tests will fail at runtime."
