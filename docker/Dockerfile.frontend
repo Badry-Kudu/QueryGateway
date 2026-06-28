@@ -2,7 +2,7 @@
 # Refresh deliberately with:
 #   docker buildx imagetools inspect <image:tag> --format '{{.Manifest.Digest}}'
 # node:24-slim is the current Active LTS (Krypton); Node 20 reached EOL on
-# 2026-03-24, so the build base tracks the latest LTS line and matches the
+# 2026-04-30, so the build base tracks the latest LTS line and matches the
 # node-version used in CI (frontend.yml / security-scan.yml).
 FROM node:24-slim@sha256:b31e7a42fdf8b8aa5f5ed477c72d694301273f1069c5a2f71d53c6482e99a2fc AS builder
 
