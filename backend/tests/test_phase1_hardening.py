@@ -11,7 +11,11 @@ Covers:
 import uuid
 
 import pytest
-from app.auth.hashing import BCRYPT_MAX_PASSWORD_BYTES
+from app.auth.hashing import (
+    BCRYPT_MAX_PASSWORD_BYTES,
+    hash_password,
+    verify_password,
+)
 from app.logging_config import redact_sensitive
 from app.repositories.auth_method import AuthMethodRepository
 from app.schemas.auth import LoginRequest
@@ -180,6 +184,21 @@ def test_multibyte_password_bounded_by_bytes_not_chars() -> None:
         LoginRequest(username="admin", password="é" * 37)
 
 
+def test_verify_password_overlength_returns_false_not_raises() -> None:
+    """An over-72-byte plaintext can never match a hash we created (hash_password
+    rejects it), so verification must return False — and must NOT raise. bcrypt
+    >= 5.0 raises on over-long input, so without the guard in verify_password an
+    over-long credential arriving from an untrusted header (Basic-auth password
+    or API key, which bypass the schema-level length check) would surface as a
+    500 instead of a clean authentication failure."""
+    stored = hash_password("correct-horse")
+    assert verify_password("correct-horse", stored) is True
+    assert verify_password("wrong", stored) is False
+    # Over bcrypt's 72-byte limit: must return False, must not raise.
+    assert verify_password("a" * (BCRYPT_MAX_PASSWORD_BYTES + 1), stored) is False
+    assert verify_password("a" * 500, stored) is False
+
+
 @pytest.mark.integration
 async def test_login_overlength_password_returns_422(async_client: object) -> None:
     client: AsyncClient = async_client  # type: ignore[assignment]
@@ -211,6 +230,9 @@ async def test_verify_basic_correctness(db_session: object) -> None:
     assert await svc.verify_basic(auth_id, "alice", "wrong") is False
     assert await svc.verify_basic(auth_id, "mallory", "correct-horse") is False
     assert await svc.verify_basic(auth_id, "mallory", "wrong") is False
+    # An over-72-byte password must fail cleanly (False), not raise: bcrypt
+    # >= 5.0 raises on over-long input and Basic-auth bypasses the schema bound.
+    assert await svc.verify_basic(auth_id, "alice", "a" * 200) is False
 
 
 @pytest.mark.integration

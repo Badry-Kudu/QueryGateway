@@ -1,4 +1,4 @@
 # CI audit tool — kept separate from the app lockfile so it is not
 # installed into the runtime image. Regenerate with:
 #   uv pip compile requirements-audit.txt --generate-hashes -o requirements-audit.lock
-pip-audit==2.9.0
+pip-audit==2.10.1

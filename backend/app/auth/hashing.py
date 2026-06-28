@@ -42,7 +42,22 @@ def hash_password(plaintext: str) -> str:
 
 
 def verify_password(plaintext: str, hashed: str) -> bool:
-    """Return True if plaintext matches the bcrypt hash."""
+    """Return True if plaintext matches the bcrypt hash.
+
+    A plaintext longer than bcrypt's 72-byte input limit can never match a
+    hash produced by ``hash_password`` (which rejects over-long input), so it
+    is rejected here without calling bcrypt. This also keeps verification
+    robust across bcrypt versions: bcrypt >= 5.0 *raises* on over-long input
+    instead of silently truncating it, so an over-long credential arriving
+    from an untrusted header — a Basic-auth password or API key, neither of
+    which passes through the schema-level length check — would otherwise
+    surface as a 500 rather than a clean authentication failure. The early
+    return leaks nothing about stored credentials: it depends only on the
+    caller-supplied input length, so the L5 constant-time property across
+    usernames is preserved.
+    """
+    if len(plaintext.encode("utf-8")) > BCRYPT_MAX_PASSWORD_BYTES:
+        return False
     return bcrypt.checkpw(plaintext.encode(), hashed.encode())
 
 
