@@ -1,0 +1,63 @@
+# Production override for the temporary Windows Server + WSL2 + Docker Engine
+# deployment path.
+#
+# Usage:
+#   cp .env.production.example .env
+#   docker compose -f docker-compose.yml -f compose.production.yml config
+#   docker compose -f docker-compose.yml -f compose.production.yml up -d
+
+services:
+  db:
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD?POSTGRES_PASSWORD is required}
+    ports: !reset []
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"${POSTGRES_USER}\" -d \"${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    environment:
+      DATABASE_URL: ${DATABASE_URL?DATABASE_URL is required}
+      APP_ENV: production
+      DEBUG: "false"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CORS_ORIGINS: ${CORS_ORIGINS?CORS_ORIGINS is required}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY?JWT_SECRET_KEY is required}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      QUERY_TIMEOUT_SECONDS: ${QUERY_TIMEOUT_SECONDS:-30}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY?ENCRYPTION_KEY is required}
+      ADMIN_USERNAME: ${ADMIN_USERNAME?ADMIN_USERNAME is required}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH?ADMIN_PASSWORD_HASH is required}
+      ORACLE_CLIENT_LIB_DIR: ${ORACLE_CLIENT_LIB_DIR:-}
+
+  api:
+    environment:
+      DATABASE_URL: ${DATABASE_URL?DATABASE_URL is required}
+      APP_ENV: production
+      DEBUG: "false"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      CORS_ORIGINS: ${CORS_ORIGINS?CORS_ORIGINS is required}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY?JWT_SECRET_KEY is required}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      QUERY_TIMEOUT_SECONDS: ${QUERY_TIMEOUT_SECONDS:-30}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY?ENCRYPTION_KEY is required}
+      ADMIN_USERNAME: ${ADMIN_USERNAME?ADMIN_USERNAME is required}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH?ADMIN_PASSWORD_HASH is required}
+      ORACLE_CLIENT_LIB_DIR: ${ORACLE_CLIENT_LIB_DIR:-}
+      FORWARDED_ALLOW_IPS: "10.31.0.0/24"
+    ports: !reset []
+
+  web:
+    ports: !override
+      - "${PUBLIC_HTTP_PORT:-80}:80"
+
+  oracle:
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-oracle}
+    ports: !reset []
