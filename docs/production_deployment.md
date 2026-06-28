@@ -18,8 +18,8 @@ Use the existing Windows EC2 server as the host, but run QueryGateway as Linux c
 Do not deploy QueryGateway as native Windows containers. The current repo is built around Linux container images:
 
 - Backend: `python:3.14-slim`
-- Frontend build: `node:20-slim`
-- Frontend runtime: `nginx:1.27-alpine`
+- Frontend build: `node:24-slim`
+- Frontend runtime: `nginx:1.31-alpine`
 - App database: `postgres:16-alpine`
 - Optional Oracle XE: `gvenzl/oracle-xe:21-slim`
 

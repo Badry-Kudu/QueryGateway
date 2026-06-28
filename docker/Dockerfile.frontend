@@ -1,7 +1,10 @@
 # Build stage — base images pinned by digest (§4.6/§4.8); readable tag kept.
 # Refresh deliberately with:
 #   docker buildx imagetools inspect <image:tag> --format '{{.Manifest.Digest}}'
-FROM node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS builder
+# node:24-slim is the current Active LTS (Krypton); Node 20 reached EOL on
+# 2026-04-30, so the build base tracks the latest LTS line and matches the
+# node-version used in CI (frontend.yml / security-scan.yml).
+FROM node:24-slim@sha256:b31e7a42fdf8b8aa5f5ed477c72d694301273f1069c5a2f71d53c6482e99a2fc AS builder
 
 WORKDIR /app
 
@@ -14,7 +17,7 @@ COPY frontend/ .
 RUN npm run build
 
 # Production stage — serve with nginx (digest-pinned).
-# On 1.29-alpine (alpine 3.23) so the base ships patched openssl
+# On 1.31-alpine so the base ships patched openssl
 # (libssl3/libcrypto3 >= 3.5.x); 1.27-alpine was stuck on alpine 3.21 with a
 # CRITICAL openssl CVE (CVE-2026-31789) that the Trivy gate rejects.
 FROM nginx:1.31-alpine@sha256:54f2a904c251d5a34adf545a72d32515a15e08418dae0266e23be2e18c66fefa AS production
