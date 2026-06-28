@@ -1,4 +1,4 @@
-.PHONY: help check check-backend check-frontend docker-build docker-up docker-down \
+.PHONY: help check check-backend check-frontend docker-build docker-migrate docker-up docker-down \
         backend-dev frontend-dev backend-setup frontend-setup
 
 # Default target
@@ -10,7 +10,8 @@ help:
 	@echo "  make check-backend   Run backend checks (ruff, mypy, pytest)"
 	@echo "  make check-frontend  Run frontend checks (eslint, prettier, vitest)"
 	@echo "  make docker-build    Build all Docker images"
-	@echo "  make docker-up       Start all services via docker compose"
+	@echo "  make docker-migrate  Run the one-shot Docker migration service"
+	@echo "  make docker-up       Run migrations and start all services via docker compose"
 	@echo "  make docker-down     Stop all services"
 	@echo "  make backend-dev     Start backend dev server"
 	@echo "  make frontend-dev    Start frontend dev server"
@@ -48,6 +49,9 @@ check-frontend:
 
 docker-build:
 	docker compose build
+
+docker-migrate:
+	docker compose up --build --force-recreate migrate
 
 docker-up:
 	docker compose up -d

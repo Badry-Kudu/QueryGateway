@@ -1,3 +1,21 @@
+x-api-build: &api-build
+  context: .
+  dockerfile: docker/Dockerfile.backend
+
+x-api-environment: &api-environment
+  DATABASE_URL: postgresql+asyncpg://db2api:db2api@db:5432/db2api
+  APP_ENV: development
+  DEBUG: "false"
+  LOG_LEVEL: INFO
+  CORS_ORIGINS: "http://localhost:5173,http://localhost:80"
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY?JWT_SECRET_KEY is required}
+  JWT_ALGORITHM: HS256
+  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+  QUERY_TIMEOUT_SECONDS: "30"
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY?ENCRYPTION_KEY is required}
+  ADMIN_USERNAME: ${ADMIN_USERNAME?ADMIN_USERNAME is required}
+  ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH?ADMIN_PASSWORD_HASH is required}
+
 services:
   db:
     image: postgres:16-alpine
@@ -24,24 +42,22 @@ services:
       timeout: 5s
       retries: 5
 
+  migrate:
+    build: *api-build
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    environment: *api-environment
+    networks:
+      - backend
+    depends_on:
+      db:
+        condition: service_healthy
+
   api:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.backend
+    build: *api-build
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+asyncpg://db2api:db2api@db:5432/db2api
-      APP_ENV: development
-      DEBUG: "false"
-      LOG_LEVEL: INFO
-      CORS_ORIGINS: "http://localhost:5173,http://localhost:80"
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY?JWT_SECRET_KEY is required}
-      JWT_ALGORITHM: HS256
-      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "60"
-      QUERY_TIMEOUT_SECONDS: "30"
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY?ENCRYPTION_KEY is required}
-      ADMIN_USERNAME: ${ADMIN_USERNAME?ADMIN_USERNAME is required}
-      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH?ADMIN_PASSWORD_HASH is required}
+      <<: *api-environment
       # Trust forwarded headers ONLY from the dedicated nginx<->api "edge"
       # subnet. nginx is the sole member of that subnet besides this service,
       # so db/oracle (on the separate "backend" network) cannot reach :8000
@@ -61,6 +77,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/admin/health/live || exit 1"]
       interval: 15s

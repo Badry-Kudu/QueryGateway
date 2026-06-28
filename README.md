@@ -116,8 +116,10 @@ cp .env.example .env   # Set JWT_SECRET_KEY and ENCRYPTION_KEY (see deployment.m
 make docker-up
 ```
 
-- Backend API: `http://localhost:8000` — interactive docs at `/api/docs`
-- Frontend SPA: `http://localhost:80`
+`make docker-up` runs the one-shot `migrate` service first, then starts the API and web containers after PostgreSQL is healthy and Alembic is at `head`.
+
+- Frontend SPA: `http://localhost`
+- API through nginx: `http://localhost/api/v1/...`
 
 ## Local Run (Without Docker)
 
@@ -207,6 +209,16 @@ make frontend-dev   # Vite dev server on :5173 (proxy /api to :8000)
 Note: `make` targets are POSIX-oriented and work natively on Ubuntu/Linux. On Windows, run the platform-specific commands above, or use WSL/Git Bash with `make`.
 
 ## Database Migrations
+
+Docker Compose applies migrations automatically through the `migrate` service before `api` starts. For non-Docker local runs, run Alembic manually:
+
+```sh
+# Docker: rerun only the migration service
+make docker-migrate
+
+# Equivalent raw Compose command
+docker compose up --build --force-recreate migrate
+```
 
 ```sh
 cd backend

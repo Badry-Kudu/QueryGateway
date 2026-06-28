@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EndpointWizard } from "@/components/endpoints/EndpointWizard";
-import { endpointsApi, getApiError } from "@/lib/api";
+import { endpointsApi, getApiError, getPublicApiBaseUrl } from "@/lib/api";
 import { queryKeys } from "@/lib/queryClient";
 import type { Endpoint, EndpointUpdate } from "@/types/endpoint";
 
@@ -70,7 +70,7 @@ export function EndpointsPage() {
     setEditError("");
   };
 
-  const baseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+  const baseUrl = getPublicApiBaseUrl();
 
   if (showWizard) {
     return (

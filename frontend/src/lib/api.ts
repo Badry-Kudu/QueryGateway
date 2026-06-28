@@ -31,10 +31,23 @@ import type {
 } from "@/types/schedule";
 import type { HealthDashboard, Setting, SettingBulkUpdate } from "@/types/setting";
 
+const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+
+export const apiBaseUrl =
+  configuredApiBaseUrl && configuredApiBaseUrl !== "/"
+    ? configuredApiBaseUrl.replace(/\/+$/, "")
+    : "";
+
+export function getPublicApiBaseUrl(): string {
+  if (apiBaseUrl) return apiBaseUrl;
+  if (typeof window !== "undefined") return window.location.origin;
+  return "";
+}
+
 // Exported for tests so they can install axios-mock-adapter on the same
 // instance the production code uses (and exercise the interceptors).
 export const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000",
+  baseURL: apiBaseUrl,
   headers: { "Content-Type": "application/json" },
 });
 

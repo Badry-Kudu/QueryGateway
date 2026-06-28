@@ -242,23 +242,19 @@ docker compose logs api --tail 50
 # Pull latest code
 git pull origin main
 
-# Backend
-cd backend
-pip install -r requirements.txt
-alembic upgrade head
-
-# Frontend
-cd ../frontend
-npm ci
-npm run build
-
-# Restart
-docker compose down && docker compose up -d
+# Rebuild and restart. The one-shot `migrate` service applies Alembic
+# migrations before the API starts.
+docker compose up -d --build
 ```
 
 ### Database Upgrade
 
-Always run migrations before starting the new application version:
+Docker Compose runs migrations automatically through the `migrate` service before the API starts. For non-Docker deployments, run migrations before starting the new application version:
+
+```bash
+# Docker-only migration run
+docker compose up --build --force-recreate migrate
+```
 
 ```bash
 # 1. Backup first

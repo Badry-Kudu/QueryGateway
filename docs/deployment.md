@@ -44,19 +44,21 @@ git clone <repo-url> && cd DB2API-Exposure
 cp .env.example .env
 # Edit .env with your values
 
-# Build and start all services
+# Build and start all services. The one-shot `migrate` service runs
+# Alembic before the API starts.
 docker compose build
 docker compose up -d
 
 # Verify services are running
 docker compose ps
-curl http://localhost:8000/api/v1/admin/health/live
-curl http://localhost:3000  # Frontend
+curl http://localhost/api/v1/admin/health/live
+curl http://localhost  # Frontend
 ```
 
 **Services started:**
-- `api` — FastAPI backend on port 8000
-- `web` — React SPA (nginx) on port 3000
+- `migrate` — one-shot Alembic migration runner
+- `api` — FastAPI backend on the private Docker network
+- `web` — React SPA (nginx) on host port 80
 - `db` — PostgreSQL on port 5432
 
 ### Option 2: Bare Metal / VM
@@ -172,7 +174,12 @@ readinessProbe:
 
 ## Database Migrations
 
-Migrations must be run before the first request:
+Docker Compose runs migrations automatically via the `migrate` service before `api` starts. For bare-metal or VM deployments, migrations must be run before the first request:
+
+```bash
+# Docker-only migration run
+docker compose up --build --force-recreate migrate
+```
 
 ```bash
 cd backend

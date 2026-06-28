@@ -55,6 +55,14 @@ cp .env.example .env
 docker compose up -d
 ```
 
+Compose runs the one-shot `migrate` service before the API starts, so a fresh local `db_data` volume is initialized automatically.
+
+To rerun migrations without restarting the whole stack:
+
+```sh
+make docker-migrate
+```
+
 To include a local Oracle XE instance:
 
 ```sh
