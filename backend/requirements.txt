@@ -18,7 +18,7 @@ psycopg2-binary>=2.9.12
 # so the app runs without it; only Oracle connectivity tests will fail at runtime.
 
 # Scheduler
-apscheduler==3.11.2
+apscheduler==3.11.3
 
 # Auth
 PyJWT==2.13.0
